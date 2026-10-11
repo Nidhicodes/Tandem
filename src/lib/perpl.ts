@@ -94,7 +94,7 @@ export const markets = async (): Promise<Market[]> =>
  * Enroll the passkey-derived Ed25519 key for this wallet. Requires an on-chain
  * exchange account (else 404). Scope 3 = read|trade. API keys can never withdraw.
  */
-export async function enrollApiKey(account: LocalAccount, signer: Ed25519SigningSession): Promise<string> {
+export async function enrollApiKey(account: LocalAccount, signer: Ed25519SigningSession, label = 'Tandem copy agent'): Promise<string> {
   const post = (path: string, body: unknown) =>
     fetch(`${base()}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
@@ -103,7 +103,7 @@ export async function enrollApiKey(account: LocalAccount, signer: Ed25519Signing
     address: account.address,
     public_key: toHex(signer.publicKey),
     scope_mask: 3,
-    label: 'Tandem copy agent',
+    label,
     ...(BUILDER.id ? { builder_id: BUILDER.id, max_builder_fee_per_100k: BUILDER.fee } : {}),
   });
   if (!payload.ok) throw new Error(`Perpl key payload -> ${payload.status}`);

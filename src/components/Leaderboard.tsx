@@ -1,60 +1,82 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Leaderboard as Board, Trader } from '@/lib/leaderboard';
-import { Card, ErrorLine, short } from './ui';
+import type { Market } from '@/lib/perpl';
+import { Avatar, Card, ErrorLine, pnlClass, short, Spinner } from './ui';
 
 const SOURCE = { 'envio-indexer': 'Envio HyperIndex', 'envio-hypersync': 'Envio HyperSync', rpc: 'Monad RPC' } as const;
 
-export function Leaderboard({ onPick, picked }: { onPick: (t: Trader) => void; picked?: string }) {
+type Props = { onPick: (t: Trader) => void; picked?: string; markets: Market[] };
+
+export function Leaderboard({ onPick, picked, markets }: Props) {
   const [board, setBoard] = useState<Board>();
   const [error, setError] = useState<string>();
+  const [loading, setLoading] = useState(false);
+  const symbol = (id: number) => markets.find((m) => m.id === id)?.symbol ?? `#${id}`;
 
-  useEffect(() => {
-    let live = true;
-    fetch('/api/leaderboard')
-      .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json()).error))))
-      .then((b) => live && setBoard(b))
-      .catch((e) => live && setError(e.message));
-    return () => void (live = false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(undefined);
+    try {
+      const r = await fetch('/api/leaderboard');
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error ?? `leaderboard -> ${r.status}`);
+      setBoard(body);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+  useEffect(() => void load(), [load]);
 
   return (
-    <Card title="Top traders on Perpl">
-      {!board && !error && <p className="text-sm text-[var(--muted)]">Scanning Perpl trades…</p>}
+    <Card
+      title="Top traders"
+      action={
+        <button type="button" onClick={load} disabled={loading} className="flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs text-[var(--muted)] hover:text-[var(--text)]" aria-label="Refresh leaderboard">
+          {loading ? <Spinner /> : '↻'} Refresh
+        </button>
+      }
+    >
+      {!board && !error && <p className="py-6 text-center text-sm text-[var(--muted)]">Reading Perpl trades…</p>}
       <ErrorLine error={error} />
-      {board && board.traders.length === 0 && (
-        <p className="text-sm text-[var(--muted)]">No trader activity in this window yet.</p>
-      )}
-      <ul className="divide-y divide-[var(--line)]">
-        {board?.traders.map((t, i) => (
-          <li key={t.accountId}>
-            <button
-              type="button"
-              onClick={() => onPick(t)}
-              aria-pressed={picked === t.accountId}
-              className={`flex w-full items-center justify-between gap-3 py-3 text-left ${picked === t.accountId ? 'text-[var(--accent)]' : ''}`}
-            >
-              <span>
-                <span className="mr-2 text-[var(--muted)]">{i + 1}</span>
-                <span className="font-mono">{short(t.address)}</span>
-                {t.label && (
-                  <span className="ml-2 rounded bg-[var(--line)] px-1.5 py-0.5 text-xs text-[var(--muted)]">{t.label}</span>
-                )}
-                <span className="block text-xs text-[var(--muted)]">
-                  {t.closes ? `${t.closes} closes · ${Math.round(t.winRate * 100)}% win` : `${t.trades} trades · no closes yet`}
+      {board && board.traders.length === 0 && <p className="py-6 text-center text-sm text-[var(--muted)]">No trader activity in this window yet.</p>}
+      <ul className="-mx-2 space-y-1">
+        {board?.traders.map((t, i) => {
+          const on = picked === t.accountId;
+          return (
+            <li key={t.accountId}>
+              <button
+                type="button"
+                onClick={() => onPick(t)}
+                aria-pressed={on}
+                className={`flex min-h-16 w-full items-center gap-3 rounded-2xl px-2 py-2 text-left transition motion-reduce:transition-none ${on ? 'bg-[var(--accent)]/15 ring-1 ring-[var(--accent)]/60' : 'hover:bg-[var(--card-2)]'}`}
+              >
+                <span className="w-5 text-center text-sm text-[var(--muted)]">{i + 1}</span>
+                <Avatar address={t.address} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate font-medium">{t.label ? t.label.replace(/^Demo bot · /, '') : short(t.address)}</span>
+                    {t.label && <span className="shrink-0 rounded-full bg-[var(--line)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--muted)]">Demo bot</span>}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-[var(--muted)]">
+                    {t.closes ? `${Math.round(t.winRate * 100)}% win · ${t.closes} close${t.closes === 1 ? '' : 's'}` : `${t.trades} trade${t.trades === 1 ? '' : 's'}`} · {t.markets.slice(0, 3).map(symbol).join(' ')}
+                  </span>
                 </span>
-              </span>
-              <span className={`font-mono ${t.realizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {t.realizedPnl >= 0 ? '+' : ''}
-                {t.realizedPnl.toFixed(2)}
-              </span>
-            </button>
-          </li>
-        ))}
+                <span className={`text-right font-mono text-sm ${pnlClass(t.realizedPnl)}`}>
+                  {t.realizedPnl >= 0 ? '+' : ''}
+                  {t.realizedPnl.toFixed(2)}
+                  <span className="block text-[10px] text-[var(--muted)]">AUSD</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
       {board && (
-        <p className="mt-2 text-xs text-[var(--muted)]">
-          Realized PnL in AUSD, {board.window}, via {SOURCE[board.source]}.
+        <p className="mt-3 text-[11px] leading-snug text-[var(--muted)]">
+          Realized PnL, {board.window}, from Perpl on-chain events via {SOURCE[board.source]}. Market makers are excluded.
         </p>
       )}
     </Card>

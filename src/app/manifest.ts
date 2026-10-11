@@ -7,7 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Trade in tandem with the best perp traders. One passkey, no seed phrase.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#0b0d12',
-    theme_color: '#0b0d12',
+    background_color: '#07080c',
+    theme_color: '#07080c',
+    icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
   };
 }

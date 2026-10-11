@@ -7,7 +7,9 @@
  *   - evm   : the Monad account (BIP-39/BIP-32, m/44'/60'/0'/0/0, same as mera's recipe)
  *   - perpl : the Ed25519 Perpl API key; the agent can trade with it but can never withdraw
  *   - vault : AES-GCM key that encrypts the user's copy rules + Perpl token at rest
- * The same passkey on a fresh device reproduces all three.
+ *   - agent : a second, separately enrolled trade-only Perpl key the user can hand to the
+ *             always-on engine (sealed to it), revocable without touching the others
+ * The same passkey on a fresh device reproduces all four.
  */
 import {
   createEd25519SigningSession,
@@ -29,12 +31,15 @@ export type Keys = {
   account: LocalAccount; // EVM signer (Monad)
   perpl: Ed25519SigningSession; // Perpl API-key signer
   vault: CryptoKey; // non-extractable AES-GCM key
+  agent: Ed25519SigningSession; // always-on agent key signer
+  agentSeed: Uint8Array; // raw agent seed, only ever sealed to the engine; zeroed by end()
   end(): void; // zero every in-memory private key
 };
 
 const NAMESPACE = {
   perpl: 'tandem/perpl-api-key/v1',
   vault: 'tandem/vault/v1',
+  agent: 'tandem/agent-key/v1',
 } as const;
 
 const derive = (root: Uint8Array, info: string) =>
@@ -51,6 +56,8 @@ async function fromRoot(root: Uint8Array): Promise<Keys> {
   const perpl = createEd25519SigningSession({ privateKey: perplSeed });
   const vaultSeed = derive(root, NAMESPACE.vault);
   const vault = await crypto.subtle.importKey('raw', vaultSeed, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  const agentSeed = derive(root, NAMESPACE.agent);
+  const agent = createEd25519SigningSession({ privateKey: agentSeed.slice() });
 
   // Sessions and WebCrypto hold their own copies; wipe ours.
   for (const b of [root, node.privateKey, perplSeed, vaultSeed]) b.fill(0);
@@ -59,9 +66,13 @@ async function fromRoot(root: Uint8Array): Promise<Keys> {
     account: toViemAccount(evmSession),
     perpl,
     vault,
+    agent,
+    agentSeed,
     end() {
       evmSession.end();
       perpl.end();
+      agent.end();
+      agentSeed.fill(0);
     },
   };
 }

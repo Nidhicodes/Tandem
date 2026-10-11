@@ -67,3 +67,15 @@ export function significant(current: bigint, target: bigint, minBps = 200): bool
   const ref = abs(target) > abs(current) ? abs(target) : abs(current);
   return delta * 10_000n >= ref * BigInt(minBps);
 }
+
+export type Leg = { m: MarketMeta; leaderLot: bigint; followerLot: bigint; mark: bigint };
+
+/**
+ * Does this follower need an order right now? True when any market drifted past the dust
+ * threshold, or the loss cap is breached (or already halted) with exposure still open.
+ * Shared by the engine and the Chainlink CRE workflow, so both agree on "drifted".
+ */
+export function needsAction(legs: Leg[], followerPnlCNS: bigint, rules: Rules, halted: boolean): boolean {
+  const flatten = halted || lossBreached(followerPnlCNS, rules);
+  return legs.some((l) => significant(l.followerLot, flatten ? 0n : targetLot(l.leaderLot, l.mark, rules, l.m)));
+}

@@ -2,16 +2,37 @@
 
 :root {
   color-scheme: dark;
-  --bg: #0b0d12;
-  --card: #151924;
-  --line: #262c3a;
-  --text: #e8ebf2;
-  --muted: #8a93a6;
+  --bg: #07080c;
+  --card: #10131b;
+  --card-2: #161a25;
+  --line: #222838;
+  --text: #eef1f7;
+  --muted: #8b94a8;
   --accent: #7c5cff;
+  --accent-2: #22d3ee;
+  --up: #34d399;
+  --down: #f87171;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(120% 60% at 50% -10%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'SF Pro Text', sans-serif;
+  font-feature-settings: 'tnum' 1; /* tabular numbers so prices don't jitter */
+}
+
+.brand-gradient {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
 }

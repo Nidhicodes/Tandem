@@ -33,11 +33,30 @@ verify and a copy engine that acts in seconds, within limits you set.
    ([`indexer/`](indexer)) turns Perpl's position events into per-trader, per-day realized PnL,
    win rate and liquidations. Market makers are filtered out. Tandem's own demo bots are always
    labelled as such.
-5. **Copy engine.** Every few seconds it reads the leader's and your positions on-chain and moves
-   you toward `leader size × your ratio`, capped per market, at your leverage, with a loss limit
-   that flattens everything and pauses. It mirrors *positions*, not fills, so missed events,
-   restarts and partial fills correct themselves on the next tick. The sizing logic
+5. **Copy engine.** It reads the leader's and your positions on-chain and moves you toward
+   `leader size × your ratio`, capped per market, at your leverage, with a loss limit that
+   flattens everything and pauses. It mirrors *positions*, not fills, so missed events,
+   restarts and partial fills correct themselves on the next pass. The sizing logic
    ([`src/lib/copy.ts`](src/lib/copy.ts)) is pure and unit-tested.
+6. **Always-on agent + Chainlink CRE.** *Start copying 24/7* derives a fourth key from the
+   passkey, a dedicated agent key, and enrolls it with Perpl as its own trade-only API key
+   (revocable on its own). Its seed is sealed to the Tandem engine's X25519 key and registered
+   with your rules in [`TandemAgents`](contracts/TandemAgents.sol). The
+   [CRE workflow](cre/tandem-copy/main.ts) runs every 30s on a Chainlink DON: it reads the
+   registry and every agent's leader/follower positions from the Perpl Exchange (consensus-verified
+   EVM reads), runs the same drift check as the engine, and wakes the engine
+   (`POST /api/engine/tick`) only for followers that need an order. CRE decides *when* to act from
+   on-chain truth; the engine only signs. Request ids are seeded from Perpl's last accepted id, so
+   duplicate wake-ups execute at most once.
+
+## Live on Monad testnet
+
+| | Address |
+|---|---|
+| Perpl Exchange | `0x1964C32f0bE608E7D29302AFF5E61268E72080cc` |
+| AUSD | `0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC` |
+| TandemVault | `0x17735db444888e001a3c056bf5112960bed643d1` |
+| TandemAgents | `0xf250a10986b3ce974d5d042fd53bbe2de6bbd770` |
 
 ## Business model
 
@@ -58,11 +77,18 @@ requests through a same-origin relay) · Envio HyperIndex + HyperSync · Solidit
 npm install
 cp .env.example .env.local     # fill in SPONSOR_PRIVATE_KEY, ENVIO_API_TOKEN
 npm run deploy:vault           # once; add NEXT_PUBLIC_VAULT_ADDRESS to .env.local
+npm run deploy:agents          # once; add NEXT_PUBLIC_AGENTS_ADDRESS to .env.local
 npm run demo:setup             # once; funds + onboards the demo bots
 npm run demo:run               # keep running: the demo bots trade every 2 minutes
+npm run engine                 # keep running locally, or let the CRE workflow call /api/engine/tick
 npm run dev                    # open on a phone or a passkey-capable browser
-npm test                       # copy-planner and demo-strategy tests
+npm test                       # planner, drift, sealing and demo-strategy tests
 cd indexer && npm install && npm test   # indexer tests against simulated and real Monad blocks
+
+# Chainlink CRE (needs a free CRE account: cre login)
+cd cre/tandem-copy && npm install && npm run compile    # builds wasm/workflow.wasm
+echo "ENGINE_TICK_TOKEN=$(cd ../.. && npm run -s engine:token)" > ../.env
+npm run simulate
 ```
 
 ## Security notes

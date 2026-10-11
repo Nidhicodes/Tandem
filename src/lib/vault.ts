@@ -13,7 +13,7 @@ import type { Keys } from './keys';
 import { chain } from './config';
 import { publicClient } from './onchain';
 
-export type VaultData = { perplApiKey?: string; rules?: Rules; leader?: string };
+export type VaultData = { perplApiKey?: string; agentApiKey?: string; rules?: Rules; leader?: string };
 
 const VAULT = process.env.NEXT_PUBLIC_VAULT_ADDRESS as Hex | undefined;
 const abi = parseAbi(['function save(bytes blob)', 'function load(address owner) view returns (bytes)']);

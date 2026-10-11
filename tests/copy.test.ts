@@ -1,7 +1,7 @@
 // Planner tests. Run: npm test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { capLot, lossBreached, plan, significant, targetLot, type Rules } from '../src/lib/copy';
+import { capLot, lossBreached, needsAction, plan, significant, targetLot, type Rules } from '../src/lib/copy';
 
 // BTC on Perpl testnet: price_decimals 1, size_decimals 5.
 const BTC = { id: 16, priceDecimals: 1, sizeDecimals: 5 };
@@ -54,4 +54,13 @@ test('significant ignores dust drift but not real moves', () => {
 test('lossBreached compares 6-decimal AUSD PnL with the cap', () => {
   assert.equal(lossBreached(-19_000_000n, rules), false);
   assert.equal(lossBreached(-20_000_001n, rules), true);
+});
+
+test('needsAction flags drift, loss-cap breaches and halted exposure only', () => {
+  const leg = (leaderLot: bigint, followerLot: bigint) => ({ m: BTC, leaderLot, followerLot, mark });
+  assert.equal(needsAction([leg(300n, 30n)], 0n, rules, false), false); // in sync at 10%
+  assert.equal(needsAction([leg(600n, 30n)], 0n, rules, false), true); // leader doubled
+  assert.equal(needsAction([leg(300n, 30n)], -21_000_000n, rules, false), true); // loss cap -> flatten
+  assert.equal(needsAction([leg(300n, 30n)], 0n, rules, true), true); // halted with exposure
+  assert.equal(needsAction([leg(300n, 0n)], 0n, rules, true), false); // halted and flat
 });

@@ -11,12 +11,16 @@
     "typecheck": "tsc --noEmit",
     "probe:perpl": "node --experimental-strip-types scripts/probe-perpl.ts",
     "test": "tsx --test tests/*.test.ts",
-    "deploy:vault": "tsx --env-file=.env.local scripts/deploy-vault.ts",
+    "deploy:vault": "tsx --env-file=.env.local scripts/deploy-contract.ts TandemVault",
     "demo:setup": "tsx --env-file=.env.local scripts/demo-leaders.ts setup",
-    "demo:run": "tsx --env-file=.env.local scripts/demo-leaders.ts run"
+    "demo:run": "tsx --env-file=.env.local scripts/demo-leaders.ts run",
+    "deploy:agents": "tsx --env-file=.env.local scripts/deploy-contract.ts TandemAgents",
+    "engine": "tsx --env-file=.env.local scripts/engine.ts",
+    "engine:token": "tsx --env-file=.env.local scripts/engine.ts token"
   },
   "dependencies": {
     "@category-labs/mera": "0.2.0",
+    "@noble/curves": "2.4.0",
     "@noble/ed25519": "3.2.0",
     "@noble/hashes": "2.4.0",
     "@scure/bip32": "2.4.0",
