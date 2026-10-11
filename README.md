@@ -7,6 +7,8 @@ Perpl perpetuals traders, set your size and risk limits, and an agent you contro
 positions into your own account. Sign in with Face ID; there is no seed phrase, no extension and
 no wallet popup per trade.
 
+**Try it on your phone: [tandem-omega-opal.vercel.app](https://tandem-omega-opal.vercel.app)** (Monad testnet)
+
 ## Who it's for
 
 Retail traders who follow signal callers on Telegram and X and copy trades by hand, late and at
