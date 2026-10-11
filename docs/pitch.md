@@ -45,11 +45,11 @@ live on testnet today: [N] people have signed up and their agents have copied [M
 
 | Time | On screen | Voice-over |
 |---|---|---|
-| 0:00-0:12 | Landing page, "N agents copying" badge visible | "This is Tandem. The problem: people copy trades by hand." |
+| 0:00-0:12 | Open a copy link (`/?copy=1050`): "You're invited to copy Trend Rider" | "A trader shares one link in their Telegram group. This is what their followers see." |
 | 0:12-0:30 | Tap **Create account with passkey**, Face ID prompt | "One Face ID. No seed phrase, no extension. Mera derives a wallet from the passkey." |
 | 0:30-0:55 | One-tap setup: gas, AUSD, Perpl account, 1,000 AUSD in, trade-only key | "Tandem sponsors gas, claims test AUSD, opens a Perpl account and enrolls a trade-only key. Five steps, one tap, about 15 seconds." |
 | 0:55-1:20 | Top traders list; point at ranks, PnL, the "Demo bot" tag | "Traders ranked by realized PnL from Perpl events, indexed with Envio. On testnet there are few humans, so we run three transparent strategy bots, always labelled." |
-| 1:20-1:40 | Tap Trend Rider: "What Trend Rider is doing" shows their position and fills | "Before copying you see exactly what they hold and every trade they've made." |
+| 1:20-1:40 | Tap Trend Rider: their position, fills, and "would have made" at my settings | "Before copying you see what they hold, every trade, and what copying them at my size would have made." |
 | 1:40-2:00 | Set 20% / 500 cap / loss 150, tap **Start copying 24/7**, Face ID | "My size, my cap, my loss limit. One more Face ID registers my agent on-chain." |
 | 2:00-2:30 | Live mirror: leader SHORT vs You SHORT, "in sync"; lock the phone, wait, reopen | "Close the app. The agent runs in the cloud. Here's a trade it copied while the phone was locked: [lag] seconds after the leader." (Record this part after a real copy happens.) |
 | 2:30-2:45 | Portfolio card: account value, open PnL | "My account, my positions. The agent can never withdraw." |
@@ -70,9 +70,11 @@ trade (watch the Actions log for "LONG/SHORT").
   agent from the registry.
 - **"What if Tandem goes down?"** Copying stops; nothing is lost. Positions stay in the
   user's own Perpl account, and they can trade or withdraw there directly.
-- **"How fast is a copy?"** Within one heartbeat (15 seconds today). The Chainlink CRE
-  workflow (simulated, deployment access requested) checks drift on-chain and wakes the
-  engine only when a follower is out of line.
+- **"How fast is a copy?"** A watcher streams Perpl Exchange events over a Monad WebSocket
+  and wakes the engine the moment a copied leader's position changes: the first measured
+  event-driven copy landed 2s after the leader (earlier polled copies took 7-15s). The app
+  shows each copy's delay and price difference vs the leader. A 15s baseline beat and the
+  Chainlink CRE workflow (simulated, deployment access requested) re-check drift on-chain.
 - **"Why not just use Bybit or Bitget copy trading?"** Those are custodial and the track
   records live on the exchange's servers. Tandem's records are on-chain and the user keeps
   custody. [Check: confirm current CEX copy-trading offerings before saying names on stage.]
