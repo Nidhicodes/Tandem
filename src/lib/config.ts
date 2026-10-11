@@ -17,3 +17,6 @@ export const AUSD = {
 } as const;
 
 export const RP_NAME = 'Tandem';
+
+/** Where Perpl answers 451 (seen live from a US region), so Tandem can't trade there. */
+export const RESTRICTED_COUNTRIES = new Set(['US']);

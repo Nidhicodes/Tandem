@@ -2,9 +2,10 @@
 import { useEffect, useState } from 'react';
 import { CopyPanel } from '@/components/CopyPanel';
 import { Leaderboard } from '@/components/Leaderboard';
+import { Mirror } from '@/components/Mirror';
 import { Portfolio } from '@/components/Portfolio';
 import { Avatar, Button, ErrorLine, short, Spinner } from '@/components/ui';
-import { listAgents } from '@/lib/agents';
+import { listAgents, type Agent } from '@/lib/agents';
 import { createAccount, signIn, type Keys } from '@/lib/keys';
 import type { Trader } from '@/lib/leaderboard';
 import { onboard, status, STEP_LABEL, type Status, type Step } from '@/lib/onboard';
@@ -20,8 +21,11 @@ export default function Home() {
   const [trader, setTrader] = useState<Trader>();
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState<string>();
+  const [region, setRegion] = useState<{ country: string; restricted: boolean }>();
+  const [watching, setWatching] = useState(false);
 
   useEffect(() => void fetchMarkets().then(setMarkets).catch(() => undefined), []);
+  useEffect(() => void fetch('/api/region').then((r) => r.json()).then(setRegion).catch(() => undefined), []);
   useEffect(() => {
     if (!keys) return;
     status(keys).then(setState).catch((e) => setError(e.message));
@@ -49,7 +53,18 @@ export default function Home() {
     requestAnimationFrame(() => document.getElementById('copy')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
-  if (!keys) return <Landing busy={busy} error={error} onCreate={run('Creating your passkey', async () => setKeys(await createAccount('Tandem user')))} onSignIn={run('Signing in', async () => setKeys(await signIn()))} />;
+  if (!keys && watching) return <Watch markets={markets} restricted={!!region?.restricted} onBack={() => setWatching(false)} />;
+  if (!keys)
+    return (
+      <Landing
+        busy={busy}
+        error={error}
+        restricted={!!region?.restricted}
+        onWatch={() => setWatching(true)}
+        onCreate={run('Creating your passkey', async () => setKeys(await createAccount('Tandem user')))}
+        onSignIn={run('Signing in', async () => setKeys(await signIn()))}
+      />
+    );
 
   const ready = state?.step === 'done' && state.exchangeId !== undefined && !!state.vault.perplApiKey;
   const current = STEPS.indexOf(step ?? state?.step ?? 'gas');
@@ -113,9 +128,13 @@ export default function Home() {
   );
 }
 
-function Landing({ busy, error, onCreate, onSignIn }: { busy?: string; error?: string; onCreate: () => void; onSignIn: () => void }) {
+type LandingProps = { busy?: string; error?: string; restricted: boolean; onCreate: () => void; onSignIn: () => void; onWatch: () => void };
+
+function Landing({ busy, error, restricted, onCreate, onSignIn, onWatch }: LandingProps) {
   const [live, setLive] = useState<number>();
+  const [noPrf, setNoPrf] = useState(false);
   useEffect(() => void listAgents().then((a) => setLive(a.filter((x) => !x.halted).length)).catch(() => undefined), []);
+  useEffect(() => void prfSupport().then((ok) => setNoPrf(ok === false)), []);
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
       <Header />
@@ -141,12 +160,72 @@ function Landing({ busy, error, onCreate, onSignIn }: { busy?: string; error?: s
         </ol>
       </div>
       <div className="space-y-3">
-        <Button onClick={onCreate} busy={busy}>Create account with passkey</Button>
-        <Button variant="ghost" onClick={onSignIn} disabled={!!busy}>I already have one</Button>
+        {restricted ? (
+          <>
+            <p role="status" className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
+              Perpl, the exchange Tandem trades on, isn't available in the US, so accounts can't be opened from here. You can still watch Tandem copy trades live.
+            </p>
+            <Button onClick={onWatch}>Watch Tandem live</Button>
+          </>
+        ) : (
+          <>
+            {noPrf && (
+              <p role="status" className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
+                This browser says it can't derive keys from a passkey (WebAuthn PRF), so sign-up will likely fail here. Use Safari on iOS 18+ with iCloud Keychain, or Chrome with Google Password Manager.
+              </p>
+            )}
+            <Button onClick={onCreate} busy={busy}>Create account with passkey</Button>
+            <Button variant="ghost" onClick={onSignIn} disabled={!!busy}>I already have one</Button>
+            <button type="button" onClick={onWatch} className="min-h-11 w-full text-sm text-[var(--muted)] underline-offset-4 hover:text-[var(--text)] hover:underline">
+              Just looking? Watch it live, no sign-up
+            </button>
+          </>
+        )}
         <ErrorLine error={error} />
-        <p className="text-center text-[11px] text-[var(--muted)]">Monad testnet · test AUSD · not financial advice</p>
+        <p className="text-center text-[11px] text-[var(--muted)]">
+          Monad testnet · test AUSD · not financial advice
+          <br />
+          Passkeys: iCloud Keychain (iOS 18+) or Google Password Manager
+        </p>
       </div>
     </div>
+  );
+}
+
+/** true / false when the browser can say whether passkeys support PRF; undefined when it can't. */
+async function prfSupport(): Promise<boolean | undefined> {
+  const pkc = (globalThis as { PublicKeyCredential?: { getClientCapabilities?: () => Promise<Record<string, boolean>> } }).PublicKeyCredential;
+  const caps = await pkc?.getClientCapabilities?.().catch(() => undefined);
+  return caps?.['extension:prf'];
+}
+
+/** Read-only: the live leaderboard and a real follower mirroring the picked trader. No account. */
+function Watch({ markets, restricted, onBack }: { markets: Market[]; restricted: boolean; onBack: () => void }) {
+  const [trader, setTrader] = useState<Trader>();
+  const [agents, setAgents] = useState<Agent[]>([]);
+  useEffect(() => void listAgents().then(setAgents).catch(() => undefined), []);
+  const follower = trader && agents.find((a) => !a.halted && a.leader.toString() === trader.accountId);
+  const pick = (t: Trader) => {
+    setTrader(t);
+    requestAnimationFrame(() => document.getElementById('watch')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+  return (
+    <>
+      <Header />
+      <section className="rounded-3xl border border-[var(--line)] bg-[var(--card)] p-4 text-sm">
+        <p className="font-medium">Read-only view</p>
+        <p className="mt-1 text-[var(--muted)]">
+          {restricted ? 'Trading is unavailable in your region. ' : ''}Tap a trader to see their positions and trades, and a Tandem user's agent copying them, live from Monad.
+        </p>
+        <button type="button" onClick={onBack} className="mt-2 min-h-9 text-[var(--accent)]">← Back</button>
+      </section>
+      <Leaderboard onPick={pick} picked={trader?.accountId} markets={markets} />
+      {trader && (
+        <div id="watch">
+          <Mirror key={trader.accountId} trader={trader} markets={markets} follower={follower?.follower} copying={!!follower} you={`Follower #${follower?.follower ?? ''}`} />
+        </div>
+      )}
+    </>
   );
 }
 

@@ -24,9 +24,10 @@ const when = (ms: number) => {
 const side = (lot: bigint) => (lot > 0n ? 'LONG' : lot < 0n ? 'SHORT' : 'FLAT');
 
 type Row = { m: Market; leader: Pos; you: Pos };
-type Props = { keys: Keys; apiKey: string; follower: bigint; trader: Trader; markets: Market[]; copying: boolean };
+/** `keys`/`apiKey` are absent in read-only mode, where `follower` is another Tandem user and `you` labels them. */
+type Props = { keys?: Keys; apiKey?: string; follower?: bigint; trader: Trader; markets: Market[]; copying: boolean; you?: string };
 
-export function Mirror({ keys, apiKey, follower, trader, markets, copying }: Props) {
+export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: youLabel = 'You' }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [events, setEvents] = useState<Event[]>();
   const name = trader.label?.replace(/^Demo bot · /, '') ?? short(trader.address);
@@ -34,14 +35,14 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying }: Pro
 
   useEffect(() => {
     let live = true;
-    const mine = perplClient(keys.perpl, apiKey);
+    const mine = keys && apiKey ? perplClient(keys.perpl, apiKey) : undefined;
     const ms = markets.filter((m) => m.config.is_open && trader.markets.includes(m.id));
     async function poll() {
       const leaderId = BigInt(trader.accountId);
       const [pos, lf, yf] = await Promise.all([
-        positionsOf(ms.flatMap((m) => [[m.id, leaderId], [m.id, follower]] as [number, bigint][])),
+        positionsOf(ms.flatMap((m) => [[m.id, leaderId], [m.id, follower ?? leaderId]] as [number, bigint][])),
         fetch(`/api/activity?leader=${trader.accountId}`).then((r) => r.json()).then((b) => (b.fills ?? []) as Fill[]).catch(() => []),
-        copying ? mine.fills().catch(() => [] as Fill[]) : Promise.resolve([] as Fill[]),
+        copying && mine ? mine.fills().catch(() => [] as Fill[]) : Promise.resolve([] as Fill[]),
       ]);
       if (!live) return;
       setRows(ms.map((m, i) => ({ m, leader: pos[2 * i], you: pos[2 * i + 1] })).filter((r) => r.leader.lot !== 0n || r.you.lot !== 0n));
@@ -57,9 +58,9 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying }: Pro
   }, [keys, apiKey, follower, trader, markets, copying]);
 
   return (
-    <Card title={copying ? 'Live mirror' : `What ${name} is doing`}>
+    <Card title={copying ? (keys ? 'Live mirror' : `Live: a Tandem user copying ${name}`) : `What ${name} is doing`}>
       {rows.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">{name} is flat right now. {copying ? 'Your agent will mirror their next trade within seconds.' : ''}</p>
+        <p className="text-sm text-[var(--muted)]">{name} is flat right now. {copying ? (keys ? 'Your agent will mirror their next trade.' : 'Their followers will mirror the next trade.') : ''}</p>
       ) : (
         <ul className="space-y-2">
           {rows.map(({ m, leader, you }) => {
@@ -74,7 +75,7 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying }: Pro
                   <Side lot={leader.lot} size={lead} />
                 </span>
                 <span>
-                  <span className="block text-[10px] uppercase tracking-wide text-[var(--muted)]">You</span>
+                  <span className="block text-[10px] uppercase tracking-wide text-[var(--muted)]">{youLabel}</span>
                   {copying ? <Side lot={you.lot} size={mineSize} /> : <span className="text-[var(--muted)]">not copying</span>}
                   {copying && <span className={`ml-1 text-[10px] ${synced ? 'text-[var(--up)]' : 'text-amber-400'}`}>{synced ? '✓ in sync' : '⟳ copying'}</span>}
                 </span>
@@ -91,7 +92,7 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying }: Pro
             return (
               <li key={`${who}-${f.at.txid}-${f.t}`} className="relative text-sm">
                 <span className={`absolute -left-[17px] top-1.5 h-2 w-2 rounded-full ${who === 'you' ? 'bg-[var(--accent)]' : 'bg-[var(--muted)]'}`} aria-hidden />
-                <span className="font-medium">{who === 'you' ? 'You' : name}</span>{' '}
+                <span className="font-medium">{who === 'you' ? youLabel : name}</span>{' '}
                 <span className="text-[var(--muted)]">
                   {VERB[f.t] ?? 'Traded'} {m ? `${scale(f.s, m.config.size_decimals)} ${m.symbol} @ ${scale(f.p, m.config.price_decimals).toLocaleString()}` : `market ${f.mkt}`}
                 </span>

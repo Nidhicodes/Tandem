@@ -17,8 +17,8 @@ const MIN_GAS = 0.05;
 
 export type Step = 'gas' | 'ausd' | 'account' | 'fund' | 'key' | 'done';
 export const STEP_LABEL: Record<Step, string> = {
-  gas: 'Adding gas to your account',
-  ausd: 'Claiming test AUSD',
+  gas: 'Adding gas and test AUSD',
+  ausd: 'Claiming test AUSD from the faucet',
   account: 'Opening your Perpl account',
   fund: 'Moving 1,000 AUSD in to trade',
   key: 'Creating your trade-only key',

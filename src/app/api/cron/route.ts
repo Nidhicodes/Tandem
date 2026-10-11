@@ -8,6 +8,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { tick, tickToken } from '@/lib/agent-engine';
 import { botTick } from '@/lib/demo-trader';
+import { refillTreasury } from '@/lib/treasury';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -25,7 +26,8 @@ export async function POST(req: Request) {
     // Bots first, so a leader's new position is copied in the same heartbeat.
     const botReports = bots ? await botTick() : [];
     const agents = await tick();
-    return Response.json({ at: Date.now(), bots: botReports, agents });
+    const treasury = bots ? await refillTreasury().catch((e) => `error: ${(e as Error).message.split('\n')[0]}`) : undefined;
+    return Response.json({ at: Date.now(), bots: botReports, agents, treasury });
   } catch (e) {
     console.error('cron failed', e);
     return Response.json({ error: (e as Error).message.split('\n')[0] }, { status: 500 });
