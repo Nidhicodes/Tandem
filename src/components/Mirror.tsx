@@ -10,7 +10,7 @@ import { positionsOf, type Pos } from '@/lib/onchain';
 import type { Trader } from '@/lib/leaderboard';
 import { perplClient, type Fill, type Market } from '@/lib/perpl';
 import type { Keys } from '@/lib/keys';
-import { timeline, type Event } from '@/lib/timeline';
+import { copyQuality, timeline, type Event } from '@/lib/timeline';
 import { Card, short } from './ui';
 
 const VERB = { 1: 'Opened long', 2: 'Opened short', 3: 'Closed long', 4: 'Closed short' } as Record<number, string>;
@@ -32,6 +32,7 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: 
   const [events, setEvents] = useState<Event[]>();
   const name = trader.label?.replace(/^Demo bot · /, '') ?? short(trader.address);
   const meta = (id: number) => markets.find((m) => m.id === id);
+  const quality = events && copyQuality(events);
 
   useEffect(() => {
     let live = true;
@@ -87,9 +88,15 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: 
         </ul>
       )}
 
+      {quality && (
+        <p className="mt-3 rounded-2xl bg-[var(--card-2)] px-3 py-2 text-xs text-[var(--muted)]">
+          Last {quality.copies} cop{quality.copies === 1 ? 'y' : 'ies'}: <span className="text-[var(--text)]">{quality.lag.toFixed(1)}s</span> behind {name} on average, at a price{' '}
+          <span className="text-[var(--text)]">{Math.abs(quality.slipBps / 100).toFixed(2)}% {quality.slipBps > 0 ? 'worse' : 'better'}</span>.
+        </p>
+      )}
       {events && events.length > 0 && (
         <ol className="mt-4 space-y-2 border-l border-[var(--line)] pl-3" aria-label="Recent trades">
-          {events.map(({ who, f, lag, joined }) => {
+          {events.map(({ who, f, lag, joined, slipBps }) => {
             const m = meta(f.mkt);
             return (
               <li key={`${who}-${f.at.txid}-${f.t}`} className="relative text-sm">
@@ -100,7 +107,7 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: 
                 </span>
                 <span className="block text-[11px] text-[var(--muted)]">
                   {when(f.at.t)}
-                  {who === 'you' && lag !== undefined && <span className="ml-1 text-[var(--up)]">· copied {lag}s later</span>}
+                  {who === 'you' && lag !== undefined && <span className="ml-1 text-[var(--up)]">· copied {lag}s later{slipBps ? `, ${Math.abs(slipBps / 100).toFixed(2)}% ${slipBps > 0 ? 'worse' : 'better'}` : ', same price'}</span>}
                   {who === 'you' && joined && <span className="ml-1">· joined their open position</span>}
                 </span>
               </li>

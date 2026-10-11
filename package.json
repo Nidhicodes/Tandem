@@ -16,7 +16,8 @@
     "demo:run": "tsx --env-file=.env.local scripts/demo-leaders.ts run",
     "deploy:agents": "tsx --env-file=.env.local scripts/deploy-contract.ts TandemAgents",
     "engine": "tsx --env-file=.env.local scripts/engine.ts",
-    "engine:token": "tsx --env-file=.env.local scripts/engine.ts token"
+    "engine:token": "tsx --env-file=.env.local scripts/engine.ts token",
+    "heartbeat": "tsx scripts/heartbeat.ts"
   },
   "dependencies": {
     "@category-labs/mera": "0.2.0",
