@@ -49,13 +49,32 @@ export async function addressOf(accountId: bigint): Promise<`0x${string}`> {
   return a.accountAddr;
 }
 
+/** Many account addresses in one eth_call (Multicall3), to stay under the RPC's 15 req/s limit. */
+export async function addressesOf(ids: bigint[]): Promise<`0x${string}`[]> {
+  const results = await publicClient.multicall({
+    allowFailure: false,
+    contracts: ids.map((id) => ({ address: PERPL.exchange, abi: exchangeAbi, functionName: 'getAccountById', args: [id] }) as const),
+  });
+  return results.map((a) => a.accountAddr);
+}
+
 /** A position as a signed lot (+long / -short, scaled) plus its PnL and the market's mark price. */
 export type Pos = { lot: bigint; pnl: bigint; mark: bigint };
 
 export async function positionOf(perpId: number, accountId: bigint): Promise<Pos> {
-  const [p, mark] = await publicClient.readContract({
-    address: PERPL.exchange, abi: exchangeAbi, functionName: 'getPositionV2', args: [BigInt(perpId), accountId],
+  return (await positionsOf([[perpId, accountId]]))[0];
+}
+
+/** Many positions in one eth_call (Multicall3). */
+export async function positionsOf(pairs: [perpId: number, accountId: bigint][]): Promise<Pos[]> {
+  const results = await publicClient.multicall({
+    allowFailure: false,
+    contracts: pairs.map(([perp, acc]) => ({
+      address: PERPL.exchange, abi: exchangeAbi, functionName: 'getPositionV2', args: [BigInt(perp), acc],
+    }) as const),
   });
-  if (p.lotLNS === 0n) return { lot: 0n, pnl: 0n, mark }; // no position reads back as lot 0 (verified live)
-  return { lot: p.positionType === LONG ? p.lotLNS : -p.lotLNS, pnl: p.pnlCNS, mark };
+  return results.map(([p, mark]) => {
+    if (p.lotLNS === 0n) return { lot: 0n, pnl: 0n, mark }; // no position reads back as lot 0 (verified live)
+    return { lot: p.positionType === LONG ? p.lotLNS : -p.lotLNS, pnl: p.pnlCNS, mark };
+  });
 }

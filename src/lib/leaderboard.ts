@@ -8,7 +8,7 @@
 import { decodeEventLog, encodeEventTopics, type Hex } from 'viem';
 import { PERPL } from './config';
 import { positionEvents } from './exchange-abi';
-import { addressOf, publicClient } from './onchain';
+import { addressesOf, publicClient } from './onchain';
 
 const HYPERSYNC = 'https://monad-testnet.hypersync.xyz';
 const RPC_CHUNK = 100n; // public Monad RPC getLogs limit (verified 2026-10-10)
@@ -112,17 +112,16 @@ export async function leaderboard(limit = 20): Promise<Leaderboard> {
     .sort(([, a], [, b]) => (b.pnl > a.pnl ? 1 : b.pnl < a.pnl ? -1 : 0))
     .slice(0, limit);
 
-  const traders = await Promise.all(
-    ranked.map(async ([id, s]) => ({
-      accountId: id.toString(),
-      address: await addressOf(id),
-      realizedPnl: Number(s.pnl) / 1e6,
-      closes: s.closes,
-      winRate: s.closes ? s.wins / s.closes : 0,
-      trades: s.trades,
-      markets: [...s.markets],
-    })),
-  );
+  const addresses = await addressesOf(ranked.map(([id]) => id));
+  const traders = ranked.map(([id, s], i) => ({
+    accountId: id.toString(),
+    address: addresses[i],
+    realizedPnl: Number(s.pnl) / 1e6,
+    closes: s.closes,
+    winRate: s.closes ? s.wins / s.closes : 0,
+    trades: s.trades,
+    markets: [...s.markets],
+  }));
 
   const value: Leaderboard = { traders, fromBlock: from.toString(), toBlock: to.toString(), source: token ? 'envio-hypersync' : 'rpc' };
   cache = { at: Date.now(), value };

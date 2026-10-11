@@ -7,7 +7,7 @@
  * server worker / Chainlink CRE workflow without change.
  */
 import { lossBreached, plan, significant, targetLot, type MarketMeta, type Rules } from './copy';
-import { positionOf } from './onchain';
+import { positionsOf } from './onchain';
 import type { OrderSpec, PerplClient } from './perpl';
 
 export type EngineLog = { at: number; text: string; level: 'info' | 'trade' | 'warn' };
@@ -35,9 +35,8 @@ export function startEngine({ perpl, follower, leader, markets, rules, onLog, in
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   async function tick() {
-    const legs = await Promise.all(
-      markets.map(async (m) => ({ m, lead: await positionOf(m.id, leader), mine: await positionOf(m.id, follower) })),
-    );
+    const reads = await positionsOf(markets.flatMap((m) => [[m.id, leader], [m.id, follower]] as [number, bigint][]));
+    const legs = markets.map((m, i) => ({ m, lead: reads[2 * i], mine: reads[2 * i + 1] }));
 
     const pnl = legs.reduce((sum, l) => sum + l.mine.pnl, 0n);
     if (!halted && lossBreached(pnl, rules)) {
