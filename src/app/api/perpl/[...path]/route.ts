@@ -12,10 +12,16 @@ import { PERPL } from '@/lib/config';
 
 const ALLOWED = /^\/v1\/(api-key\/(payload|enroll)|trading\/(wallet|orders|positions|fills)|pub\/context|market-data\/[\w/-]+)$/;
 const FORWARD = ['content-type', 'x-api-key', 'x-api-timestamp', 'x-api-nonce', 'x-api-signature'];
+// Perpl answers 451 to US traffic. The relay runs in bom1 (vercel.json), so pass that
+// restriction through to the end user instead of laundering it via our region.
+const RESTRICTED = new Set(['US']);
 
 async function relay(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const path = `/${(await params).path.join('/')}`;
   if (!ALLOWED.test(path)) return Response.json({ error: 'path not allowed' }, { status: 404 });
+  if (RESTRICTED.has(req.headers.get('x-vercel-ip-country') ?? '')) {
+    return Response.json({ error: 'Perpl is not available in your region' }, { status: 451 });
+  }
 
   const headers = new Headers();
   for (const h of FORWARD) {
