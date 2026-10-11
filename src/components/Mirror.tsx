@@ -8,10 +8,12 @@
 import { useEffect, useState } from 'react';
 import { positionsOf, type Pos } from '@/lib/onchain';
 import type { Trader } from '@/lib/leaderboard';
-import { perplClient, type Fill, type Market } from '@/lib/perpl';
-import type { Keys } from '@/lib/keys';
+import type { Fill, Market } from '@/lib/perpl';
 import { copyQuality, timeline, type Event } from '@/lib/timeline';
 import { Card, short } from './ui';
+
+const getFills = (q: string): Promise<Fill[]> =>
+  fetch(`/api/activity?${q}`).then((r) => r.json()).then((b) => (b.fills ?? []) as Fill[]).catch(() => []);
 
 const VERB = { 1: 'Opened long', 2: 'Opened short', 3: 'Closed long', 4: 'Closed short' } as Record<number, string>;
 const scale = (v: bigint | number, d: number) => Number(v) / 10 ** d;
@@ -24,10 +26,10 @@ const when = (ms: number) => {
 const side = (lot: bigint) => (lot > 0n ? 'LONG' : lot < 0n ? 'SHORT' : 'FLAT');
 
 type Row = { m: Market; leader: Pos; you: Pos };
-/** `keys`/`apiKey` are absent in read-only mode, where `follower` is another Tandem user and `you` labels them. */
-type Props = { keys?: Keys; apiKey?: string; follower?: bigint; trader: Trader; markets: Market[]; copying: boolean; you?: string };
+/** `owner` is the follower's wallet (its agent's copies are read server-side); `you` labels it -- another user in read-only mode. */
+type Props = { owner?: string; follower?: bigint; trader: Trader; markets: Market[]; copying: boolean; you?: string; mine?: boolean };
 
-export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: youLabel = 'You' }: Props) {
+export function Mirror({ owner, follower, trader, markets, copying, you: youLabel = 'You', mine = true }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [events, setEvents] = useState<Event[]>();
   const name = trader.label?.replace(/^Demo bot · /, '') ?? short(trader.address);
@@ -36,7 +38,6 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: 
 
   useEffect(() => {
     let live = true;
-    const mine = keys && apiKey ? perplClient(keys.perpl, apiKey) : undefined;
     // A copy-link trader outside the leaderboard window has no known markets yet: watch them all.
     const inScope = (id: number) => trader.markets.length === 0 || trader.markets.includes(id);
     const ms = markets.filter((m) => m.config.is_open && inScope(m.id));
@@ -44,8 +45,8 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: 
       const leaderId = BigInt(trader.accountId);
       const [pos, lf, yf] = await Promise.all([
         positionsOf(ms.flatMap((m) => [[m.id, leaderId], [m.id, follower ?? leaderId]] as [number, bigint][])),
-        fetch(`/api/activity?leader=${trader.accountId}`).then((r) => r.json()).then((b) => (b.fills ?? []) as Fill[]).catch(() => []),
-        copying && mine ? mine.fills().catch(() => [] as Fill[]) : Promise.resolve([] as Fill[]),
+        getFills(`leader=${trader.accountId}`),
+        copying && owner ? getFills(`owner=${owner}`) : Promise.resolve([] as Fill[]),
       ]);
       if (!live) return;
       setRows(ms.map((m, i) => ({ m, leader: pos[2 * i], you: pos[2 * i + 1] })).filter((r) => r.leader.lot !== 0n || r.you.lot !== 0n));
@@ -58,12 +59,12 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: 
       live = false;
       clearInterval(id);
     };
-  }, [keys, apiKey, follower, trader, markets, copying]);
+  }, [owner, follower, trader, markets, copying]);
 
   return (
-    <Card title={copying ? (keys ? 'Live mirror' : `Live: a Tandem user copying ${name}`) : `What ${name} is doing`}>
+    <Card title={copying ? (mine ? 'Live mirror' : `Live: a Tandem user copying ${name}`) : `What ${name} is doing`}>
       {rows.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">{name} is flat right now. {copying ? (keys ? 'Your agent will mirror their next trade.' : 'Their followers will mirror the next trade.') : ''}</p>
+        <p className="text-sm text-[var(--muted)]">{name} is flat right now. {copying ? (mine ? 'Your agent will mirror their next trade.' : 'Their followers will mirror the next trade.') : ''}</p>
       ) : (
         <ul className="space-y-2">
           {rows.map(({ m, leader, you }) => {

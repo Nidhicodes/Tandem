@@ -116,7 +116,7 @@ export function CopyPanel({ keys, apiKey, follower, trader, markets, saved }: Pr
       )}
       <ShareLink trader={trader} name={name} />
       <ErrorLine error={error} />
-      <Mirror keys={keys} apiKey={apiKey} follower={follower} trader={trader} markets={markets} copying={running} />
+      <Mirror owner={address} follower={follower} trader={trader} markets={markets} copying={running} />
       {logs.length > 0 && (
         <Card title="Activity">
           <ul className="space-y-1 text-xs" aria-live="polite">

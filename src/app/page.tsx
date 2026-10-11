@@ -244,7 +244,7 @@ function Watch({ markets, restricted, initial, onBack }: { markets: Market[]; re
       <Leaderboard onPick={pick} picked={trader?.accountId} markets={markets} />
       {trader && (
         <div id="watch">
-          <Mirror key={trader.accountId} trader={trader} markets={markets} follower={follower?.follower} copying={!!follower} you={`Follower #${follower?.follower ?? ''}`} />
+          <Mirror key={trader.accountId} trader={trader} markets={markets} owner={follower?.owner} follower={follower?.follower} copying={!!follower} mine={false} you={`Follower #${follower?.follower ?? ''}`} />
         </div>
       )}
     </>

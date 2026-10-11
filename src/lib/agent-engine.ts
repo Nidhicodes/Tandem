@@ -41,6 +41,11 @@ async function agentClient(owner: Hex) {
   return perplClient(createEd25519SigningSession({ privateKey: hexToBytes(seed) }), token);
 }
 
+/** A follower's recent fills, read with its agent key (the key that placed the copies). */
+export async function agentFills(owner: Hex) {
+  return (await agentClient(owner)).fills();
+}
+
 async function halt(owner: Hex, reason: string) {
   const operator = createWalletClient({ account: privateKeyToAccount(sponsorKey()), chain, transport: http() });
   const hash = await operator.writeContract({ address: AGENTS!, abi: agentsAbi, functionName: 'halt', args: [owner, reason] });
