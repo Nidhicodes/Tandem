@@ -1,0 +1,56 @@
+# cre workflow simulate ./tandem-copy --target staging-settings (CRE CLI v1.38.0)
+## Run 1: leader went flat, follower still long
+Initializing...
+Loading settings...
+Checking RPC connectivity...
+Compiling workflow...
+✓ Workflow compiled
+✓ Simulation limits enabled
+  HTTP: req=120kb resp=250kb timeout=10s | ConfHTTP: req=125kb resp=500kb timeout=1m30s | Consensus obs=25kb | ChainWrite evm_report=50kb evm_gas=10000000 solana_report=265b solana_cu=300000 | WASM binary=100mb compressed=20mb
+  Binary hash: 7d5121b1697cb9caa8e52f6d6109f1e22d8b967e48050d72ade968e7bc97aebb
+  Config hash: 2515da20c632c818239d3ed85e1f2c17be4df5051e733b3171e60279e6981bd8
+! Secret "ENGINE_TICK_TOKEN" uses itself as the env var name — this is fragile and may cause confusion. Consider using a distinct env var name (e.g. "CRE_ENGINE_TICK_TOKEN").
+2026-10-11T05:42:06Z [SIMULATION] Simulator Initialized
+
+2026-10-11T05:42:06Z [SIMULATION] Running trigger trigger=cron-trigger@1.0.0
+2026-10-11T05:42:06Z [USER LOG] agents=1 drifted=1
+
+✓ Workflow Simulation Result:
+"checked 1 agents, woke engine for 1 (HTTP 200)"
+
+2026-10-11T05:42:08Z [SIMULATION] Execution finished signal received
+2026-10-11T05:42:08Z [SIMULATION] Skipping WorkflowEngineV2
+
+╭──────────────────────────────────────────────────────╮
+│ Simulation complete! Ready to deploy your workflow?  │
+│                                                      │
+│ Run cre account access to request deployment access. │
+╰──────────────────────────────────────────────────────╯
+
+## Run 2: ~45s later
+Initializing...
+Loading settings...
+Checking RPC connectivity...
+Compiling workflow...
+✓ Workflow compiled
+✓ Simulation limits enabled
+  HTTP: req=120kb resp=250kb timeout=10s | ConfHTTP: req=125kb resp=500kb timeout=1m30s | Consensus obs=25kb | ChainWrite evm_report=50kb evm_gas=10000000 solana_report=265b solana_cu=300000 | WASM binary=100mb compressed=20mb
+  Binary hash: 7d5121b1697cb9caa8e52f6d6109f1e22d8b967e48050d72ade968e7bc97aebb
+  Config hash: 2515da20c632c818239d3ed85e1f2c17be4df5051e733b3171e60279e6981bd8
+! Secret "ENGINE_TICK_TOKEN" uses itself as the env var name — this is fragile and may cause confusion. Consider using a distinct env var name (e.g. "CRE_ENGINE_TICK_TOKEN").
+2026-10-11T05:42:53Z [SIMULATION] Simulator Initialized
+
+2026-10-11T05:42:53Z [SIMULATION] Running trigger trigger=cron-trigger@1.0.0
+2026-10-11T05:42:53Z [USER LOG] agents=1 drifted=0
+
+✓ Workflow Simulation Result:
+"checked 1 agents, all in sync"
+
+2026-10-11T05:42:53Z [SIMULATION] Execution finished signal received
+2026-10-11T05:42:53Z [SIMULATION] Skipping WorkflowEngineV2
+
+╭──────────────────────────────────────────────────────╮
+│ Simulation complete! Ready to deploy your workflow?  │
+│                                                      │
+│ Run cre account access to request deployment access. │
+╰──────────────────────────────────────────────────────╯
