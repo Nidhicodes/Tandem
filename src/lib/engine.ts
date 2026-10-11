@@ -8,7 +8,7 @@
  */
 import { lossBreached, plan, significant, targetLot, type MarketMeta, type Rules } from './copy';
 import { positionsOf } from './onchain';
-import type { OrderSpec, PerplClient } from './perpl';
+import { BUILDER, type OrderSpec, type PerplClient } from './perpl';
 
 export type EngineLog = { at: number; text: string; level: 'info' | 'trade' | 'warn' };
 
@@ -54,7 +54,7 @@ export function startEngine({ perpl, follower, leader, markets, rules, onLog, in
       acc ??= await perpl.account();
       rq = Math.max(rq, acc.lfr) + 1;
       for (const o of plan(mine.lot, target, m.id)) {
-        orders.push({ ...o, rq: rq++, acc: acc.id, p: 0, fl: IOC, lv: rules.leverage * 100, lb: 0, ms: SLIPPAGE_BPS });
+        orders.push({ ...o, rq: rq++, acc: acc.id, p: 0, fl: IOC, lv: rules.leverage * 100, lb: 0, ms: SLIPPAGE_BPS, ...(BUILDER.id && BUILDER.fee ? { bf: BUILDER.fee } : {}) });
       }
       coolUntil.set(m.id, now + COOLDOWN_MS);
     }
@@ -63,7 +63,7 @@ export function startEngine({ perpl, follower, leader, markets, rules, onLog, in
     const statuses = await perpl.submit(orders);
     orders.forEach((o, i) => {
       const s = statuses[i];
-      const what = `${['', 'Open long', 'Open short', 'Close long', 'Close short'][o.t]} ${o.s} on market ${o.mkt}`;
+      const what = `${['', 'Open long', 'Open short', 'Close long', 'Close short'][o.t]} ${o.s} ${markets.find((m) => m.id === o.mkt)?.symbol ?? `market ${o.mkt}`}`;
       if (s?.code === 0) log(`${what}: sent`, 'trade');
       else log(`${what}: refused ${s?.code ?? '?'} ${s?.error ?? ''}`, 'warn');
     });

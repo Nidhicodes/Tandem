@@ -37,6 +37,9 @@ export function Leaderboard({ onPick, picked }: { onPick: (t: Trader) => void; p
               <span>
                 <span className="mr-2 text-[var(--muted)]">{i + 1}</span>
                 <span className="font-mono">{short(t.address)}</span>
+                {t.label && (
+                  <span className="ml-2 rounded bg-[var(--line)] px-1.5 py-0.5 text-xs text-[var(--muted)]">{t.label}</span>
+                )}
                 <span className="block text-xs text-[var(--muted)]">
                   {t.closes ? `${t.closes} closes · ${Math.round(t.winRate * 100)}% win` : `${t.trades} trades · no closes yet`}
                 </span>

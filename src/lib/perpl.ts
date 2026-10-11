@@ -12,6 +12,16 @@ import { bytesToHex, hashTypedData, hexToBytes, toHex, type LocalAccount, type T
 import { PERPL } from './config';
 
 const base = () => (typeof window === 'undefined' ? PERPL.api : '/api/perpl');
+
+/**
+ * Builder code: Tandem's revenue. When Perpl issues a builder id, keys are enrolled bound to it
+ * with a fee ceiling the user signs for, and each copied order charges BUILDER.fee (per_100k,
+ * 10 = 1 bps). Unset = no fee. Docs: docs.perpl.xyz/.../builder-codes
+ */
+export const BUILDER = {
+  id: Number(process.env.NEXT_PUBLIC_PERPL_BUILDER_ID ?? 0),
+  fee: Number(process.env.NEXT_PUBLIC_PERPL_BUILDER_FEE_PER_100K ?? 0),
+};
 const enc = new TextEncoder();
 const b64url = (b: Uint8Array) =>
   btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -29,6 +39,7 @@ export type OrderSpec = {
   lv: number; // leverage, hundredths
   lb: number; // 0 = market's max execution window
   ms?: number; // max market slippage, bps
+  bf?: number; // builder fee, per_100k (builder-bound keys only)
 };
 export type Status = { code: number; error?: string };
 export type ExchangeAccount = { id: number; lfr: number; fw: boolean };
@@ -93,6 +104,7 @@ export async function enrollApiKey(account: LocalAccount, signer: Ed25519Signing
     public_key: toHex(signer.publicKey),
     scope_mask: 3,
     label: 'Tandem copy agent',
+    ...(BUILDER.id ? { builder_id: BUILDER.id, max_builder_fee_per_100k: BUILDER.fee } : {}),
   });
   if (!payload.ok) throw new Error(`Perpl key payload -> ${payload.status}`);
   const { typed_data, mac } = await payload.json();

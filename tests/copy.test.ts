@@ -1,7 +1,7 @@
 // Planner tests. Run: npm test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { capLot, lossBreached, plan, significant, targetLot, type Rules } from '../src/lib/copy.ts';
+import { capLot, lossBreached, plan, significant, targetLot, type Rules } from '../src/lib/copy';
 
 // BTC on Perpl testnet: price_decimals 1, size_decimals 5.
 const BTC = { id: 16, priceDecimals: 1, sizeDecimals: 5 };

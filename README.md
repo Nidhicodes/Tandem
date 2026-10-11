@@ -1,0 +1,76 @@
+# Tandem
+
+**Trade in tandem with the best perp traders. One passkey, no seed phrase.**
+
+Tandem is a mobile-first copy-trading app on Monad. Pick a trader from a live leaderboard of
+Perpl perpetuals traders, set your size and risk limits, and an agent you control mirrors their
+positions into your own account. Sign in with Face ID; there is no seed phrase, no extension and
+no wallet popup per trade.
+
+## Who it's for
+
+Retail traders who follow signal callers on Telegram and X and copy trades by hand, late and at
+worse prices. Tandem replaces screenshots and manual entry with an on-chain track record you can
+verify and a copy engine that acts in seconds, within limits you set.
+
+## How it works
+
+1. **One passkey, many keys** ([Mera](https://mera.category.xyz)). A single WebAuthn ceremony
+   yields 32 PRF bytes. Tandem derives three independent keys from them, each in its own HKDF
+   namespace:
+   - the **Monad account** (secp256k1) that owns your funds;
+   - a **trade-only Perpl API key** (Ed25519). It can place orders but, by Perpl's design, can
+     never withdraw;
+   - a **vault key** (AES-GCM) that encrypts your settings.
+   The same passkey on a fresh device re-derives all three. Nothing secret is stored anywhere.
+2. **One-tap onboarding.** *Get started* sponsors a little gas, claims test **AUSD**, opens a
+   **Perpl** account with order forwarding enabled, and enrolls the trade-only key. Each step
+   checks live state first, so it resumes after a refresh or on another device.
+3. **Encrypted settings on-chain.** Your Perpl API token and copy rules are AES-GCM encrypted
+   under the vault key and stored in [`TandemVault`](contracts/TandemVault.sol) on Monad. A
+   new phone with the same passkey restores everything with no backup step.
+4. **Leaderboard** ([Envio](https://envio.dev)). An Envio HyperIndex indexer
+   ([`indexer/`](indexer)) turns Perpl's position events into per-trader, per-day realized PnL,
+   win rate and liquidations. Market makers are filtered out. Tandem's own demo bots are always
+   labelled as such.
+5. **Copy engine.** Every few seconds it reads the leader's and your positions on-chain and moves
+   you toward `leader size × your ratio`, capped per market, at your leverage, with a loss limit
+   that flattens everything and pauses. It mirrors *positions*, not fills, so missed events,
+   restarts and partial fills correct themselves on the next tick. The sizing logic
+   ([`src/lib/copy.ts`](src/lib/copy.ts)) is pure and unit-tested.
+
+## Business model
+
+Perpl **builder codes**: each copy-follower's key is enrolled bound to Tandem's builder id with a
+fee ceiling the user signs for, and every copied order carries a small builder fee (for example
+1 bp). Revenue scales with copied volume, and both the follower and Perpl see it on-chain.
+(Wired in [`src/lib/perpl.ts`](src/lib/perpl.ts); switched on by `NEXT_PUBLIC_PERPL_BUILDER_ID`
+once Perpl issues the id.)
+
+## Stack
+
+Next.js PWA · TypeScript · viem · `@category-labs/mera` · Perpl REST API (signed Ed25519
+requests through a same-origin relay) · Envio HyperIndex + HyperSync · Solidity (`TandemVault`)
+
+## Run it
+
+```bash
+npm install
+cp .env.example .env.local     # fill in SPONSOR_PRIVATE_KEY, ENVIO_API_TOKEN
+npm run deploy:vault           # once; add NEXT_PUBLIC_VAULT_ADDRESS to .env.local
+npm run demo:setup             # once; funds + onboards the demo bots
+npm run demo:run               # keep running: the demo bots trade every 2 minutes
+npm run dev                    # open on a phone or a passkey-capable browser
+npm test                       # copy-planner and demo-strategy tests
+cd indexer && npm install && npm test   # indexer tests against simulated and real Monad blocks
+```
+
+## Security notes
+
+- The trade-only API key cannot withdraw, under any scope (Perpl API docs).
+- `/api/perpl` relays only the Perpl paths the app uses; signatures are made in the browser.
+- `/api/gas` is public so onboarding works; it only tops up near-empty accounts, once each, with a
+  small fixed amount from a testnet-only key.
+- `TandemVault` stores ciphertext only; each address can write only its own slot.
+
+Testnet only. Not financial advice.

@@ -40,8 +40,13 @@ export async function openPerplAccount(account: LocalAccount, amount: bigint) {
 
 /** Exchange account id for a wallet, or undefined if it has none. */
 export async function accountIdOf(address: `0x${string}`): Promise<bigint | undefined> {
+  return (await exchangeAccountOf(address))?.id;
+}
+
+/** Exchange account id and free collateral balance (6-decimal AUSD), or undefined if none. */
+export async function exchangeAccountOf(address: `0x${string}`): Promise<{ id: bigint; balance: bigint; locked: bigint } | undefined> {
   const a = await publicClient.readContract({ address: PERPL.exchange, abi: exchangeAbi, functionName: 'getAccountByAddr', args: [address] });
-  return a.accountId === 0n ? undefined : a.accountId;
+  return a.accountId === 0n ? undefined : { id: a.accountId, balance: a.balanceCNS, locked: a.lockedBalanceCNS };
 }
 
 export async function addressOf(accountId: bigint): Promise<`0x${string}`> {
@@ -58,8 +63,8 @@ export async function addressesOf(ids: bigint[]): Promise<`0x${string}`[]> {
   return results.map((a) => a.accountAddr);
 }
 
-/** A position as a signed lot (+long / -short, scaled) plus its PnL and the market's mark price. */
-export type Pos = { lot: bigint; pnl: bigint; mark: bigint };
+/** A position as a signed lot (+long / -short, scaled) plus entry price, PnL and the market's mark price. */
+export type Pos = { lot: bigint; pnl: bigint; mark: bigint; entry: bigint; deposit: bigint };
 
 export async function positionOf(perpId: number, accountId: bigint): Promise<Pos> {
   return (await positionsOf([[perpId, accountId]]))[0];
@@ -74,7 +79,7 @@ export async function positionsOf(pairs: [perpId: number, accountId: bigint][]):
     }) as const),
   });
   return results.map(([p, mark]) => {
-    if (p.lotLNS === 0n) return { lot: 0n, pnl: 0n, mark }; // no position reads back as lot 0 (verified live)
-    return { lot: p.positionType === LONG ? p.lotLNS : -p.lotLNS, pnl: p.pnlCNS, mark };
+    if (p.lotLNS === 0n) return { lot: 0n, pnl: 0n, mark, entry: 0n, deposit: 0n }; // no position reads back as lot 0 (verified live)
+    return { lot: p.positionType === LONG ? p.lotLNS : -p.lotLNS, pnl: p.pnlCNS, mark, entry: p.pricePNS, deposit: p.depositCNS };
   });
 }

@@ -11,7 +11,7 @@ export type Rules = {
   maxLoss: number; // stop copying and flatten once position PnL falls below -maxLoss AUSD
 };
 
-export type MarketMeta = { id: number; priceDecimals: number; sizeDecimals: number };
+export type MarketMeta = { id: number; priceDecimals: number; sizeDecimals: number; symbol?: string };
 export type Side = { lot: bigint; mark: bigint }; // signed lot: + long, - short
 export type PlannedOrder = { mkt: number; t: 1 | 2 | 3 | 4; s: number }; // Open/Close Long/Short, scaled size
 
@@ -50,7 +50,11 @@ export function plan(current: bigint, target: bigint, mkt: number): PlannedOrder
   return out;
 }
 
-/** True once the follower's open PnL (6-decimal AUSD, summed over markets) breaches the loss cap. */
+/**
+ * True once the follower's open PnL (6-decimal AUSD, summed over markets) breaches the loss cap.
+ * Uses the Exchange's getPositionV2 pnlCNS, which is mark-to-market PnL (checked against
+ * (mark - entry) * lot on live positions, 2026-10-10).
+ */
 export const lossBreached = (pnlCNS: bigint, rules: Rules) => pnlCNS < -BigInt(Math.floor(rules.maxLoss)) * 10n ** AUSD_DECIMALS;
 
 /**

@@ -2,6 +2,7 @@
   "name": "tandem",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Trade in tandem with the best perp traders. One passkey, no seed phrase.",
   "scripts": {
     "dev": "next dev",
@@ -9,7 +10,10 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "probe:perpl": "node --experimental-strip-types scripts/probe-perpl.ts",
-    "test": "node --experimental-strip-types --no-warnings --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "deploy:vault": "tsx --env-file=.env.local scripts/deploy-vault.ts",
+    "demo:setup": "tsx --env-file=.env.local scripts/demo-leaders.ts setup",
+    "demo:run": "tsx --env-file=.env.local scripts/demo-leaders.ts run"
   },
   "dependencies": {
     "@category-labs/mera": "0.2.0",
@@ -28,7 +32,9 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "postcss": "8.5.29",
+    "solc": "0.8.37",
     "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
     "typescript": "5.9.3"
   }
 }

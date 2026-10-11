@@ -9,6 +9,7 @@ import { decodeEventLog, encodeEventTopics, type Hex } from 'viem';
 import { PERPL } from './config';
 import { positionEvents } from './exchange-abi';
 import { addressesOf, publicClient } from './onchain';
+import { demoLabels } from './demo';
 
 const HYPERSYNC = 'https://monad-testnet.hypersync.xyz';
 const RPC_CHUNK = 100n; // public Monad RPC getLogs limit (verified 2026-10-10)
@@ -29,6 +30,7 @@ export type Trader = {
   winRate: number; // 0..1 over closing events
   trades: number;
   markets: number[];
+  label?: string; // set for Tandem's own demo bots, which are always marked as such
 };
 export type Leaderboard = { traders: Trader[]; window: string; source: 'envio-indexer' | 'envio-hypersync' | 'rpc' };
 
@@ -120,8 +122,9 @@ const rankAndFilter = (rows: Iterable<[bigint, Agg]>, maxTrades: number, limit: 
     .sort(([, a], [, b]) => (b.pnl > a.pnl ? 1 : b.pnl < a.pnl ? -1 : 0))
     .slice(0, limit);
 
-const toTraders = (ranked: Ranked, addresses: Hex[]): Trader[] =>
-  ranked.map(([id, s], i) => ({
+const toTraders = (ranked: Ranked, addresses: Hex[]): Trader[] => {
+  const labels = demoLabels();
+  return ranked.map(([id, s], i) => ({
     accountId: id.toString(),
     address: addresses[i],
     realizedPnl: Number(s.pnl) / 1e6,
@@ -129,7 +132,9 @@ const toTraders = (ranked: Ranked, addresses: Hex[]): Trader[] =>
     winRate: s.closes ? s.wins / s.closes : 0,
     trades: s.trades,
     markets: [...s.markets],
+    ...(labels.has(addresses[i]?.toLowerCase()) ? { label: labels.get(addresses[i].toLowerCase()) } : {}),
   }));
+};
 
 /**
  * Preferred source: our Envio HyperIndex indexer (../indexer), which keeps per-day
