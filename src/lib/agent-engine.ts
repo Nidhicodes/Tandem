@@ -27,6 +27,8 @@ const derive = (info: string) => hkdf(sha256, new TextEncoder().encode(sponsorKe
 /** The engine's X25519 keypair, derived from the sponsor key (one server secret to manage). */
 const engineSecret = () => derive('tandem/engine/x25519/v1');
 export const enginePublicKey = (): Hex => bytesToHex(x25519.getPublicKey(engineSecret()));
+/** Open a blob sealed to the engine (agent keys, demo-bot tokens). */
+export const unsealForEngine = (blob: Hex) => unseal(engineSecret(), hexToBytes(blob));
 
 /** Bearer token the CRE workflow presents on /api/engine/tick. */
 export const tickToken = (): string => bytesToHex(derive('tandem/engine/tick-token/v1')).slice(2);
@@ -62,8 +64,10 @@ export async function tick(only?: Hex[]): Promise<TickReport[]> {
   const agents = (await listAgents()).filter((a) => !wanted || wanted.has(a.owner.toLowerCase()));
   const metas = await openMarkets();
 
-  return Promise.all(
-    agents.map(async (a: Agent): Promise<TickReport> => {
+  // One agent at a time: the public Monad RPC allows ~15 req/s, and a burst of parallel
+  // copy steps (each a multicall plus Perpl calls) trips it. Agents are few; latency is fine.
+  return sequential(
+    agents.map((a: Agent) => async (): Promise<TickReport> => {
       const report: TickReport = { owner: a.owner, leader: a.leader.toString(), logs: [] };
       try {
         const r = await copyStep({ perpl: await agentClient(a.owner), follower: a.follower, leader: a.leader, markets: metas, rules: a.rules, halted: a.halted });
@@ -75,4 +79,10 @@ export async function tick(only?: Hex[]): Promise<TickReport[]> {
       return report;
     }),
   );
+}
+
+export async function sequential<T>(jobs: (() => Promise<T>)[]): Promise<T[]> {
+  const out: T[] = [];
+  for (const job of jobs) out.push(await job());
+  return out;
 }

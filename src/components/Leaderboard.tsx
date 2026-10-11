@@ -60,6 +60,7 @@ export function Leaderboard({ onPick, picked, markets }: Props) {
                     <span className="truncate font-medium">{t.label ? t.label.replace(/^Demo bot · /, '') : short(t.address)}</span>
                     {t.label && <span className="shrink-0 rounded-full bg-[var(--line)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--muted)]">Demo bot</span>}
                   </span>
+                  {t.blurb && <span className="mt-0.5 block text-xs leading-snug text-[var(--text)]/80">{t.blurb}</span>}
                   <span className="mt-0.5 block truncate text-xs text-[var(--muted)]">
                     {t.closes ? `${Math.round(t.winRate * 100)}% win · ${t.closes} close${t.closes === 1 ? '' : 's'}` : `${t.trades} trade${t.trades === 1 ? '' : 's'}`} · {t.markets.slice(0, 3).map(symbol).join(' ')}
                   </span>

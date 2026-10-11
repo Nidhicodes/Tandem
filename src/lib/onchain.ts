@@ -65,6 +65,12 @@ export async function openPerplAccount(account: LocalAccount, amount: bigint) {
   return send(account, { address: PERPL.exchange, abi: exchangeAbi, functionName: 'allowOrderForwarding', args: [true], account, chain });
 }
 
+/** Move more AUSD from the wallet into an existing Perpl account. */
+export async function depositToPerpl(account: LocalAccount, amount: bigint) {
+  await send(account, { address: AUSD.token, abi: erc20Abi, functionName: 'approve', args: [PERPL.exchange, amount], account, chain });
+  return send(account, { address: PERPL.exchange, abi: exchangeAbi, functionName: 'depositCollateral', args: [amount], account, chain });
+}
+
 /** Exchange account id for a wallet, or undefined if it has none. */
 export async function accountIdOf(address: `0x${string}`): Promise<bigint | undefined> {
   return (await exchangeAccountOf(address))?.id;

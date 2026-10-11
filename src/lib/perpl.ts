@@ -42,6 +42,8 @@ export type OrderSpec = {
   bf?: number; // builder fee, per_100k (builder-bound keys only)
 };
 export type Status = { code: number; error?: string };
+/** A fill (seen live): t = order type 1..4 as in OrderSpec, p/s scaled by market decimals, at.t = ms. */
+export type Fill = { at: { b: number; t: number; txid: string }; mkt: number; acc: number; t: number; p: number; s: number; f: string };
 export type ExchangeAccount = { id: number; lfr: number; fw: boolean };
 
 export type PerplClient = ReturnType<typeof perplClient>;
@@ -75,6 +77,10 @@ export function perplClient(signer: Ed25519SigningSession, apiKey: string) {
       const acc = w.as?.[0];
       if (!acc) throw new Error('wallet holds no Perpl exchange account');
       return acc;
+    },
+    /** This account's recent fills, newest first. */
+    async fills(): Promise<Fill[]> {
+      return (await request<{ d?: Fill[] }>('GET', '/v1/trading/fills')).d ?? [];
     },
     /** Submit up to 100 orders. A 0 code means forwarded, not filled. */
     async submit(orders: OrderSpec[]): Promise<Status[]> {

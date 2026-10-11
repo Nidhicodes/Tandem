@@ -1,0 +1,40 @@
+# Always-on heartbeat for the deployed app: copy every active agent every ~15s and let the
+# demo-leader bots decide every ~2 min, by calling the app's /api/cron endpoint.
+# Vercel Hobby cron only fires daily, so a long-running job keeps the beat instead. Each run
+# lasts just under 6 hours and the next scheduled run replaces it (concurrency group).
+# Needs one repo secret: TANDEM_TICK_TOKEN (print it with `npm run engine:token`).
+name: heartbeat
+
+on:
+  schedule:
+    - cron: '0 */5 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: heartbeat
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  beat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      URL: ${{ vars.TANDEM_URL || 'https://tandem-omega-opal.vercel.app' }}
+      TOKEN: ${{ secrets.TANDEM_TICK_TOKEN }}
+    steps:
+      - name: Beat
+        run: |
+          [ -n "$TOKEN" ] || { echo "::error::TANDEM_TICK_TOKEN secret is not set"; exit 1; }
+          end=$(( $(date +%s) + 345 * 60 ))
+          i=0
+          while [ "$(date +%s)" -lt "$end" ]; do
+            q=""; [ $(( i % 8 )) -eq 0 ] && q="?bots=1"
+            code=$(curl -s -o out.json -w '%{http_code}' -m 55 -X POST -H "authorization: Bearer $TOKEN" "$URL/api/cron$q" || echo 000)
+            # Log only what changed: trades, errors, non-200s.
+            if [ "$code" != 200 ]; then echo "$(date -u +%T) HTTP $code $(head -c 300 out.json)";
+            else jq -c '[.bots[]? | select(.action != "hold")] + [.agents[]? | select((.logs|length) > 0 or .error) | {owner, logs: [.logs[].text], error}] | select(length > 0)' out.json | sed "s/^/$(date -u +%T) /"; fi
+            i=$((i + 1))
+            sleep 15
+          done

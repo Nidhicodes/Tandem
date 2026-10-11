@@ -8,9 +8,11 @@ import type { Keys } from '@/lib/keys';
 import type { Trader } from '@/lib/leaderboard';
 import { perplClient, type Market } from '@/lib/perpl';
 import { saveVault } from '@/lib/vault';
+import { Mirror } from './Mirror';
 import { Button, Card, ErrorLine, Field, short } from './ui';
 
-const DEFAULT_RULES: Rules = { ratioBps: 1000, maxNotional: 50, leverage: 2, maxLoss: 20 };
+// Leaders trade ~2,000 AUSD positions, so 20% is a ~400 AUSD copy against a 1,000 AUSD account.
+const DEFAULT_RULES: Rules = { ratioBps: 2000, maxNotional: 500, leverage: 3, maxLoss: 150 };
 const ALWAYS_ON = !!AGENTS;
 
 type Props = { keys: Keys; apiKey: string; follower: bigint; trader: Trader; markets: Market[]; saved?: Rules };
@@ -109,6 +111,7 @@ export function CopyPanel({ keys, apiKey, follower, trader, markets, saved }: Pr
         <Button onClick={start} busy={busy}>{ALWAYS_ON ? 'Start copying 24/7' : 'Start copying'}</Button>
       )}
       <ErrorLine error={error} />
+      <Mirror keys={keys} apiKey={apiKey} follower={follower} trader={trader} markets={markets} copying={running} />
       {logs.length > 0 && (
         <Card title="Activity">
           <ul className="space-y-1 text-xs" aria-live="polite">

@@ -67,7 +67,3 @@ export function demoLeaders(sponsorKey = process.env.SPONSOR_PRIVATE_KEY): Leade
 }
 
 export const apiSigner = (l: Leader) => createEd25519SigningSession({ privateKey: l.apiSeed.slice() });
-
-/** address(lowercase) -> label, for the leaderboard. */
-export const demoLabels = (): Map<string, string> =>
-  new Map(demoLeaders().map((l) => [l.address.toLowerCase(), `Demo bot · ${l.strategy.name}`]));

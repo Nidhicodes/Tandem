@@ -1,7 +1,7 @@
 // Demo bot tests. Run: npm test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { demoLabels, demoLeaders, STRATEGIES } from '../src/lib/demo';
+import { demoLeaders, STRATEGIES } from '../src/lib/demo';
 
 const by = (name: string) => STRATEGIES.find((s) => s.name === name)!;
 const KEY = `0x${'ab'.repeat(32)}`;
@@ -27,7 +27,7 @@ test('Breakout joins range breaks only', () => {
   assert.equal(s.signal([100, 101, 99, 100.5]), 0);
 });
 
-test('leader keys are deterministic, distinct, and labelled as demo', () => {
+test('leader keys are deterministic and distinct', () => {
   const a = demoLeaders(KEY);
   const b = demoLeaders(KEY);
   assert.equal(a.length, STRATEGIES.length);
@@ -35,6 +35,4 @@ test('leader keys are deterministic, distinct, and labelled as demo', () => {
   assert.equal(new Set(a.map((l) => l.address)).size, a.length);
   assert.notEqual(a[0].key, KEY);
   assert.deepEqual(demoLeaders(undefined), []);
-  process.env.SPONSOR_PRIVATE_KEY = KEY;
-  assert.match(demoLabels().get(a[0].address.toLowerCase())!, /^Demo bot · /);
 });

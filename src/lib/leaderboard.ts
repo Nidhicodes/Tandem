@@ -8,8 +8,9 @@
 import { decodeEventLog, encodeEventTopics, type Hex } from 'viem';
 import { PERPL } from './config';
 import { positionEvents } from './exchange-abi';
-import { addressesOf, publicClient } from './onchain';
-import { demoLabels } from './demo';
+import { addressesOf, exchangeAccountOf, publicClient } from './onchain';
+import { markets } from './perpl';
+import { demoLeaders } from './demo';
 
 const HYPERSYNC = 'https://monad-testnet.hypersync.xyz';
 const RPC_CHUNK = 100n; // public Monad RPC getLogs limit (verified 2026-10-10)
@@ -31,6 +32,7 @@ export type Trader = {
   trades: number;
   markets: number[];
   label?: string; // set for Tandem's own demo bots, which are always marked as such
+  blurb?: string; // a demo bot's strategy, in one line
 };
 export type Leaderboard = { traders: Trader[]; window: string; source: 'envio-indexer' | 'envio-hypersync' | 'rpc' };
 
@@ -123,8 +125,10 @@ const rankAndFilter = (rows: Iterable<[bigint, Agg]>, maxTrades: number, limit: 
     .slice(0, limit);
 
 const toTraders = (ranked: Ranked, addresses: Hex[]): Trader[] => {
-  const labels = demoLabels();
-  return ranked.map(([id, s], i) => ({
+  const bots = new Map(demoLeaders().map((l) => [l.address.toLowerCase(), l.strategy]));
+  return ranked.map(([id, s], i) => {
+    const bot = bots.get(addresses[i]?.toLowerCase());
+    return {
     accountId: id.toString(),
     address: addresses[i],
     realizedPnl: Number(s.pnl) / 1e6,
@@ -132,8 +136,9 @@ const toTraders = (ranked: Ranked, addresses: Hex[]): Trader[] => {
     winRate: s.closes ? s.wins / s.closes : 0,
     trades: s.trades,
     markets: [...s.markets],
-    ...(labels.has(addresses[i]?.toLowerCase()) ? { label: labels.get(addresses[i].toLowerCase()) } : {}),
-  }));
+    ...(bot ? { label: `Demo bot · ${bot.name}`, blurb: bot.blurb } : {}),
+    };
+  });
 };
 
 /**
@@ -179,13 +184,30 @@ async function viaIndexer(url: string, limit: number): Promise<Leaderboard> {
   };
 }
 
+/**
+ * The scan window can be shorter than a bot's last trade, so make sure Tandem's demo bots are
+ * always listed (with whatever stats the window has, or none) -- they're the copyable baseline.
+ */
+async function withBots(board: Leaderboard): Promise<Leaderboard> {
+  const listed = new Set(board.traders.map((t) => t.address.toLowerCase()));
+  const missing = demoLeaders().filter((l) => !listed.has(l.address.toLowerCase()));
+  if (!missing.length) return board;
+  const [ms, accs] = await Promise.all([markets(), Promise.all(missing.map((l) => exchangeAccountOf(l.address)))]);
+  const extra: Trader[] = missing.flatMap((l, i) => {
+    const acc = accs[i];
+    const m = ms.find((x) => x.symbol === l.strategy.market);
+    return acc ? [{ accountId: acc.id.toString(), address: l.address, realizedPnl: 0, closes: 0, winRate: 0, trades: 0, markets: m ? [m.id] : [], label: `Demo bot · ${l.strategy.name}`, blurb: l.strategy.blurb }] : [];
+  });
+  return { ...board, traders: [...board.traders, ...extra] };
+}
+
 export async function leaderboard(limit = 20): Promise<Leaderboard> {
   if (cache && Date.now() - cache.at < 60_000) return cache.value;
 
   const indexerUrl = process.env.ENVIO_GRAPHQL_URL;
   if (indexerUrl) {
     try {
-      const value = await viaIndexer(indexerUrl, limit);
+      const value = await withBots(await viaIndexer(indexerUrl, limit));
       cache = { at: Date.now(), value };
       return value;
     } catch (e) {
@@ -200,11 +222,11 @@ export async function leaderboard(limit = 20): Promise<Leaderboard> {
   const logs = token ? await viaHyperSync(token, from, to) : await viaRpc(from, to);
 
   const ranked = rankAndFilter(aggregate(logs), (Number(span) / 1000) * MM_EVENTS_PER_1K_BLOCKS, limit);
-  const value: Leaderboard = {
+  const value = await withBots({
     traders: toTraders(ranked, await addressesOf(ranked.map(([id]) => id))),
     window: `blocks ${from}–${to}`,
     source: token ? 'envio-hypersync' : 'rpc',
-  };
+  });
   cache = { at: Date.now(), value };
   return value;
 }

@@ -4,12 +4,13 @@ import { CopyPanel } from '@/components/CopyPanel';
 import { Leaderboard } from '@/components/Leaderboard';
 import { Portfolio } from '@/components/Portfolio';
 import { Avatar, Button, ErrorLine, short, Spinner } from '@/components/ui';
+import { listAgents } from '@/lib/agents';
 import { createAccount, signIn, type Keys } from '@/lib/keys';
 import type { Trader } from '@/lib/leaderboard';
 import { onboard, status, STEP_LABEL, type Status, type Step } from '@/lib/onboard';
 import { markets as fetchMarkets, type Market } from '@/lib/perpl';
 
-const STEPS: Step[] = ['gas', 'ausd', 'account', 'key'];
+const STEPS: Step[] = ['gas', 'ausd', 'account', 'fund', 'key'];
 
 export default function Home() {
   const [keys, setKeys] = useState<Keys>();
@@ -113,21 +114,31 @@ export default function Home() {
 }
 
 function Landing({ busy, error, onCreate, onSignIn }: { busy?: string; error?: string; onCreate: () => void; onSignIn: () => void }) {
+  const [live, setLive] = useState<number>();
+  useEffect(() => void listAgents().then((a) => setLive(a.filter((x) => !x.halted).length)).catch(() => undefined), []);
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
       <Header />
       <div className="flex flex-1 flex-col justify-center gap-6 py-8">
         <div>
           <h1 className="text-4xl font-semibold leading-tight tracking-tight">
-            Trade in tandem with the <span className="bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] bg-clip-text text-transparent">best perp traders</span>.
+            Stop copying trades <span className="bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] bg-clip-text text-transparent">by hand</span>.
           </h1>
-          <p className="mt-3 text-lg text-[var(--muted)]">Pick a trader, set your limits, and your agent mirrors them on Perpl. One passkey, no seed phrase.</p>
+          <p className="mt-3 text-lg text-[var(--muted)]">
+            Signal groups post the call, and by the time you open your exchange the price has moved. Tandem mirrors a trader into your account in seconds, from one Face ID.
+          </p>
+          {live !== undefined && live > 0 && (
+            <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-1 text-xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
+              {live} agent{live === 1 ? '' : 's'} copying on Monad right now
+            </p>
+          )}
         </div>
-        <ul className="space-y-3 text-sm">
-          <Point icon="🔑" title="Face ID is your wallet" text="A Mera passkey creates your account. Nothing to write down." />
-          <Point icon="🛡️" title="Your agent can't withdraw" text="It holds a trade-only key, within the size and loss limits you set." />
-          <Point icon="📈" title="Real, on-chain track records" text="Leaders are ranked from Perpl trades indexed by Envio." />
-        </ul>
+        <ol className="space-y-3 text-sm">
+          <Point n={1} title="Face ID is your wallet" text="A Mera passkey creates your account. No seed phrase, no extension." />
+          <Point n={2} title="Pick a trader by their record" text="Ranked by realized PnL from Perpl trades on-chain, not screenshots." />
+          <Point n={3} title="Your agent copies them 24/7" text="Within your size and loss limits. It can trade but can never withdraw." />
+        </ol>
       </div>
       <div className="space-y-3">
         <Button onClick={onCreate} busy={busy}>Create account with passkey</Button>
@@ -139,9 +150,9 @@ function Landing({ busy, error, onCreate, onSignIn }: { busy?: string; error?: s
   );
 }
 
-const Point = ({ icon, title, text }: { icon: string; title: string; text: string }) => (
+const Point = ({ n, title, text }: { n: number; title: string; text: string }) => (
   <li className="flex gap-3 rounded-2xl border border-[var(--line)] bg-[var(--card)]/70 p-3">
-    <span className="text-xl" aria-hidden>{icon}</span>
+    <span className="brand-gradient flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" aria-hidden>{n}</span>
     <span>
       <span className="block font-medium">{title}</span>
       <span className="text-[var(--muted)]">{text}</span>
