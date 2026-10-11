@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import type { Leaderboard as Board, Trader } from '@/lib/leaderboard';
 import { Card, ErrorLine, short } from './ui';
 
+const SOURCE = { 'envio-indexer': 'Envio HyperIndex', 'envio-hypersync': 'Envio HyperSync', rpc: 'Monad RPC' } as const;
+
 export function Leaderboard({ onPick, picked }: { onPick: (t: Trader) => void; picked?: string }) {
   const [board, setBoard] = useState<Board>();
   const [error, setError] = useState<string>();
@@ -49,7 +51,7 @@ export function Leaderboard({ onPick, picked }: { onPick: (t: Trader) => void; p
       </ul>
       {board && (
         <p className="mt-2 text-xs text-[var(--muted)]">
-          Realized PnL in AUSD, blocks {board.fromBlock}–{board.toBlock} via {board.source === 'rpc' ? 'Monad RPC' : 'Envio HyperSync'}.
+          Realized PnL in AUSD, {board.window}, via {SOURCE[board.source]}.
         </p>
       )}
     </Card>

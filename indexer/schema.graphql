@@ -1,0 +1,24 @@
+# One row per Perpl exchange account. All money fields are AUSD in 6-decimal units.
+type Trader {
+  id: BigInt! # Perpl exchange account id
+  address: String!
+  realizedPnl: BigInt! # sum of deltaPnl over every closing event
+  closes: Int! # events that realized PnL: decrease, close, invert, liquidation
+  wins: Int! # closes with deltaPnl > 0
+  liquidations: Int!
+  trades: Int! # every position event, opening and closing
+  markets: [Int!]! # perp ids traded
+  lastTradeAt: Int! # unix seconds
+  days: [TraderDay!]! @derivedFrom(field: "trader")
+}
+
+# Per-trader daily rollup, so the app can rank by 24h / 7d windows.
+type TraderDay {
+  id: ID! # "<accountId>-<utc day number>"
+  trader: Trader!
+  day: Int! @index # floor(unix seconds / 86400)
+  realizedPnl: BigInt!
+  closes: Int!
+  wins: Int!
+  trades: Int!
+}
