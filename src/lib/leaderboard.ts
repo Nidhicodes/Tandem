@@ -10,6 +10,7 @@ import { PERPL } from './config';
 import { positionEvents } from './exchange-abi';
 import { addressesOf, exchangeAccountOf, publicClient } from './onchain';
 import { markets } from './perpl';
+import { listAgents } from './agents';
 import { demoLeaders } from './demo';
 
 const HYPERSYNC = 'https://monad-testnet.hypersync.xyz';
@@ -189,6 +190,9 @@ async function viaIndexer(url: string, limit: number): Promise<Leaderboard> {
  * always listed (with whatever stats the window has, or none) -- they're the copyable baseline.
  */
 async function withBots(board: Leaderboard): Promise<Leaderboard> {
+  // Tandem followers mirror someone else; listing them as leaders would be copying a copy.
+  const followers = new Set((await listAgents().catch(() => [])).map((a) => a.follower.toString()));
+  board = { ...board, traders: board.traders.filter((t) => !followers.has(t.accountId)) };
   const listed = new Set(board.traders.map((t) => t.address.toLowerCase()));
   const missing = demoLeaders().filter((l) => !listed.has(l.address.toLowerCase()));
   if (!missing.length) return board;

@@ -15,6 +15,12 @@ import { Card, short } from './ui';
 
 const VERB = { 1: 'Opened long', 2: 'Opened short', 3: 'Closed long', 4: 'Closed short' } as Record<number, string>;
 const scale = (v: bigint | number, d: number) => Number(v) / 10 ** d;
+/** Time today, otherwise a short date too. */
+const when = (ms: number) => {
+  const d = new Date(ms);
+  const t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${t}`;
+};
 const side = (lot: bigint) => (lot > 0n ? 'LONG' : lot < 0n ? 'SHORT' : 'FLAT');
 
 type Row = { m: Market; leader: Pos; you: Pos };
@@ -80,7 +86,7 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying }: Pro
 
       {events && events.length > 0 && (
         <ol className="mt-4 space-y-2 border-l border-[var(--line)] pl-3" aria-label="Recent trades">
-          {events.map(({ who, f, lag }) => {
+          {events.map(({ who, f, lag, joined }) => {
             const m = meta(f.mkt);
             return (
               <li key={`${who}-${f.at.txid}-${f.t}`} className="relative text-sm">
@@ -90,8 +96,9 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying }: Pro
                   {VERB[f.t] ?? 'Traded'} {m ? `${scale(f.s, m.config.size_decimals)} ${m.symbol} @ ${scale(f.p, m.config.price_decimals).toLocaleString()}` : `market ${f.mkt}`}
                 </span>
                 <span className="block text-[11px] text-[var(--muted)]">
-                  {new Date(f.at.t).toLocaleTimeString()}
+                  {when(f.at.t)}
                   {who === 'you' && lag !== undefined && <span className="ml-1 text-[var(--up)]">· copied {lag}s later</span>}
+                  {who === 'you' && joined && <span className="ml-1">· joined their open position</span>}
                 </span>
               </li>
             );

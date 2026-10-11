@@ -101,7 +101,7 @@ export function CopyPanel({ keys, apiKey, follower, trader, markets, saved }: Pr
         </fieldset>
         <ul className="mt-3 space-y-1 text-xs text-[var(--muted)]">
           <li>• Your agent key can trade but can never withdraw.</li>
-          {ALWAYS_ON && <li>• Chainlink CRE watches the leader on-chain and wakes your agent when they move.</li>}
+          {ALWAYS_ON && <li>• Runs in the cloud with the app closed, checking the leader on-chain every few seconds.</li>}
           <li>• Rules are encrypted with your passkey and restore on any device.</li>
         </ul>
       </Card>

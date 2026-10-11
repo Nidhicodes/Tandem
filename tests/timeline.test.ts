@@ -13,7 +13,9 @@ test('a copy is matched to the latest same-market, same-type leader fill before 
   assert.deepEqual(ev.filter((e) => e.who === 'you').map((e) => e.lag), [5, 3]); // 4.5s rounds to 5
 });
 
-test('no lag for fills with no matching leader trade, or one >10 minutes old', () => {
-  const ev = timeline([fill(0, 1)], [fill(1000, 2), fill(700_000, 1), fill(2000, 1, 32)]);
-  assert.ok(ev.filter((e) => e.who === 'you').every((e) => e.lag === undefined));
+test('late starters are marked as joining, not as a slow copy', () => {
+  const ev = timeline([fill(0, 1)], [fill(1000, 2), fill(142_000, 1), fill(2000, 1, 32)]);
+  const you = ev.filter((e) => e.who === 'you');
+  assert.ok(you.every((e) => e.lag === undefined));
+  assert.deepEqual(you.map((e) => !!e.joined), [true, false, false]);
 });

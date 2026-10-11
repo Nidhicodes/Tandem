@@ -51,6 +51,11 @@ verify and a copy engine that acts in seconds, within limits you set.
    on-chain truth; the engine only signs. Request ids are seeded from Perpl's last accepted id, so
    duplicate wake-ups execute at most once.
 
+   Until the CRE deployment is approved (simulation output: [docs/evidence](docs/evidence/cre-simulation.txt)),
+   a [GitHub Actions heartbeat](.github/workflows/heartbeat.yml) calls `POST /api/cron` every 15s:
+   one copy pass for every agent, and a decision for each demo bot every 2 minutes. Nothing runs
+   on a laptop. Perpl is not available to US users, and the app passes that restriction through.
+
 ## Live on Monad testnet
 
 | | Address |
