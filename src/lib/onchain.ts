@@ -1,11 +1,26 @@
 /** Onchain actions on Monad testnet: balances, AUSD faucet, Perpl account setup, position reads. */
-import { createPublicClient, createWalletClient, erc20Abi, formatUnits, http, parseAbi, type LocalAccount } from 'viem';
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  createPublicClient,
+  createWalletClient,
+  erc20Abi,
+  formatUnits,
+  http,
+  parseAbi,
+  type LocalAccount,
+} from 'viem';
 import { AUSD, chain, PERPL } from './config';
 import { exchangeAbi, LONG } from './exchange-abi';
 
 export const publicClient = createPublicClient({ chain, transport: http() });
 
-const faucetAbi = parseAbi(['function requestFunds(address to)']);
+const faucetAbi = parseAbi(['function requestFunds(address to)', 'error MaxFrequencyExceeded()']);
+
+const revertName = (e: unknown) => {
+  const r = e instanceof BaseError ? e.walk((x) => x instanceof ContractFunctionRevertedError) : undefined;
+  return r instanceof ContractFunctionRevertedError ? r.data?.errorName : undefined;
+};
 
 export async function balances(address: `0x${string}`) {
   const [mon, ausd] = await Promise.all([
@@ -23,9 +38,21 @@ async function send(account: LocalAccount, tx: Parameters<ReturnType<typeof wall
   return hash;
 }
 
-/** Mint testnet AUSD from Agora's faucet (selector-verified: requestFunds(address)). */
-export const requestAusd = (account: LocalAccount) =>
-  send(account, { address: AUSD.faucet, abi: faucetAbi, functionName: 'requestFunds', args: [account.address], account, chain });
+/**
+ * Mint testnet AUSD from Agora's faucet (selector-verified: requestFunds(address)).
+ * The faucet allows one claim per ~minute across all callers (MaxFrequencyExceeded,
+ * observed 2026-10-10), so wait and retry for up to ~2 minutes.
+ */
+export async function requestAusd(account: LocalAccount) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await send(account, { address: AUSD.faucet, abi: faucetAbi, functionName: 'requestFunds', args: [account.address], account, chain });
+    } catch (e) {
+      if (revertName(e) !== 'MaxFrequencyExceeded' || attempt >= 6) throw e;
+      await new Promise((r) => setTimeout(r, 20_000));
+    }
+  }
+}
 
 /**
  * Approve + createAccount on the Perpl Exchange with `amount` raw AUSD (6 decimals),
@@ -45,8 +72,13 @@ export async function accountIdOf(address: `0x${string}`): Promise<bigint | unde
 
 /** Exchange account id and free collateral balance (6-decimal AUSD), or undefined if none. */
 export async function exchangeAccountOf(address: `0x${string}`): Promise<{ id: bigint; balance: bigint; locked: bigint } | undefined> {
-  const a = await publicClient.readContract({ address: PERPL.exchange, abi: exchangeAbi, functionName: 'getAccountByAddr', args: [address] });
-  return a.accountId === 0n ? undefined : { id: a.accountId, balance: a.balanceCNS, locked: a.lockedBalanceCNS };
+  try {
+    const a = await publicClient.readContract({ address: PERPL.exchange, abi: exchangeAbi, functionName: 'getAccountByAddr', args: [address] });
+    return { id: a.accountId, balance: a.balanceCNS, locked: a.lockedBalanceCNS };
+  } catch (e) {
+    if (revertName(e) === 'AccountDoesNotExist') return undefined;
+    throw e;
+  }
 }
 
 export async function addressOf(accountId: bigint): Promise<`0x${string}`> {

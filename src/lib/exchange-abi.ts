@@ -11,6 +11,7 @@ export const exchangeAbi = parseAbi([
   'function getPositionV2(uint256 perpId, uint256 accountId) view returns ((uint256 accountId, uint256 nextNodeId, uint256 prevNodeId, uint8 positionType, uint256 depositCNS, uint256 pricePNS, uint256 lotLNS, uint256 entryBlock, int256 pnlCNS, int256 deltaPnlCNS, int256 premiumPnlCNS, uint256 priceResiduePNSQ16) positionInfo, uint256 markPricePNS, bool markPriceValid)',
   'function getAccountByAddr(address accountAddress) view returns ((uint256 accountId, uint256 balanceCNS, uint256 lockedBalanceCNS, uint8 frozen, address accountAddr, (uint256 bank1, uint256 bank2, uint256 bank3, uint256 bank4) positions) accountInfo)',
   'function getAccountById(uint256 accountId) view returns ((uint256 accountId, uint256 balanceCNS, uint256 lockedBalanceCNS, uint8 frozen, address accountAddr, (uint256 bank1, uint256 bank2, uint256 bank3, uint256 bank4) positions) accountInfo)',
+  'error AccountDoesNotExist(address accountAddress)', // getAccountByAddr reverts with this for a wallet with no account (seen live)
 ]);
 
 /** Events that realize PnL (closing side) plus the ones that open or grow exposure. */

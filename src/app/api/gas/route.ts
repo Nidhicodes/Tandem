@@ -33,6 +33,13 @@ export async function POST(req: Request) {
     const wallet = createWalletClient({ account: privateKeyToAccount(key), chain, transport: http() });
     const hash = await wallet.sendTransaction({ to: address, value: DRIP });
     await publicClient.waitForTransactionReceipt({ hash });
+    // The RPC can report the receipt before the new balance is usable, and the user's very
+    // next tx then fails with "Signer had insufficient balance" (seen live; Monad validates
+    // against slightly delayed state). Wait until it shows, then let a few blocks pass.
+    for (let i = 0; i < 20 && (await publicClient.getBalance({ address })) < FLOOR; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    await new Promise((r) => setTimeout(r, 2000));
     return NextResponse.json({ funded: true, hash });
   } catch (e) {
     served.delete(id);

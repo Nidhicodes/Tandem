@@ -24,7 +24,7 @@ type Opts = {
 
 const SLIPPAGE_BPS = 100;
 const IOC = 4;
-const COOLDOWN_MS = 10_000; // ~ one Perpl order window (order_ttl_blocks) before re-checking a market
+const COOLDOWN_MS = 4_000; // fills land on-chain in ~1.5s (measured live); wait a little longer before re-checking a market
 
 export function startEngine({ perpl, follower, leader, markets, rules, onLog, intervalMs = 3000 }: Opts) {
   const log = (text: string, level: EngineLog['level'] = 'info') => onLog({ at: Date.now(), text, level });
