@@ -33,7 +33,11 @@ export default function Home() {
     try {
       await fn();
     } catch (e) {
-      setError((e as Error).message.split('\n')[0]);
+      setError(
+        (e as { code?: string }).code === 'PRF_UNAVAILABLE'
+          ? 'This passkey provider does not support PRF, which Tandem needs to derive your keys. Use iCloud Keychain (iOS/macOS 18+) or Google Password Manager (Chrome/Android), not a third-party password manager or Windows Hello.'
+          : (e as Error).message.split('\n')[0],
+      );
     } finally {
       setBusy(undefined);
     }
