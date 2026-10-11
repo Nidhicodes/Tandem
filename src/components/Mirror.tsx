@@ -36,7 +36,9 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: 
   useEffect(() => {
     let live = true;
     const mine = keys && apiKey ? perplClient(keys.perpl, apiKey) : undefined;
-    const ms = markets.filter((m) => m.config.is_open && trader.markets.includes(m.id));
+    // A copy-link trader outside the leaderboard window has no known markets yet: watch them all.
+    const inScope = (id: number) => trader.markets.length === 0 || trader.markets.includes(id);
+    const ms = markets.filter((m) => m.config.is_open && inScope(m.id));
     async function poll() {
       const leaderId = BigInt(trader.accountId);
       const [pos, lf, yf] = await Promise.all([
@@ -46,7 +48,7 @@ export function Mirror({ keys, apiKey, follower, trader, markets, copying, you: 
       ]);
       if (!live) return;
       setRows(ms.map((m, i) => ({ m, leader: pos[2 * i], you: pos[2 * i + 1] })).filter((r) => r.leader.lot !== 0n || r.you.lot !== 0n));
-      setEvents(timeline(lf, yf.filter((f) => trader.markets.includes(f.mkt))));
+      setEvents(timeline(lf, yf.filter((f) => inScope(f.mkt))));
     }
     const tick = () => poll().catch(() => undefined);
     void tick();

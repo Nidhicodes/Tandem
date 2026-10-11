@@ -110,6 +110,7 @@ export function CopyPanel({ keys, apiKey, follower, trader, markets, saved }: Pr
       ) : (
         <Button onClick={start} busy={busy}>{ALWAYS_ON ? 'Start copying 24/7' : 'Start copying'}</Button>
       )}
+      <ShareLink trader={trader} name={name} />
       <ErrorLine error={error} />
       <Mirror keys={keys} apiKey={apiKey} follower={follower} trader={trader} markets={markets} copying={running} />
       {logs.length > 0 && (
@@ -124,5 +125,27 @@ export function CopyPanel({ keys, apiKey, follower, trader, markets, saved }: Pr
         </Card>
       )}
     </section>
+  );
+}
+
+/** "Copy me on Tandem": a link that opens the app with this trader preselected. */
+function ShareLink({ trader, name }: { trader: Trader; name: string }) {
+  const [done, setDone] = useState(false);
+  const share = async () => {
+    const url = `${location.origin}/?copy=${trader.accountId}`;
+    const text = `Copy ${name} on Tandem: one Face ID, no seed phrase.`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Tandem', text, url });
+      else await navigator.clipboard.writeText(url);
+      setDone(true);
+      setTimeout(() => setDone(false), 2500);
+    } catch {
+      /* the user closed the share sheet */
+    }
+  };
+  return (
+    <button type="button" onClick={share} className="min-h-11 w-full rounded-2xl text-sm text-[var(--muted)] hover:text-[var(--text)]" aria-live="polite">
+      {done ? '✓ Link ready to share' : `↗ Share a link to copy ${name}`}
+    </button>
   );
 }

@@ -59,6 +59,7 @@ export function Leaderboard({ onPick, picked, markets }: Props) {
                   <span className="flex items-center gap-1.5">
                     <span className="truncate font-medium">{t.label ? t.label.replace(/^Demo bot · /, '') : short(t.address)}</span>
                     {t.label && <span className="shrink-0 rounded-full bg-[var(--line)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--muted)]">Demo bot</span>}
+                    {!!t.followers && <Followers n={t.followers} />}
                   </span>
                   {t.blurb && <span className="mt-0.5 block text-xs leading-snug text-[var(--text)]/80">{t.blurb}</span>}
                   <span className="mt-0.5 block truncate text-xs text-[var(--muted)]">
@@ -83,3 +84,9 @@ export function Leaderboard({ onPick, picked, markets }: Props) {
     </Card>
   );
 }
+
+export const Followers = ({ n }: { n: number }) => (
+  <span className="shrink-0 rounded-full bg-[var(--accent)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent)]">
+    {n} copying
+  </span>
+);

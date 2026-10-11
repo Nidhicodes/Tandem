@@ -23,9 +23,18 @@ export default function Home() {
   const [error, setError] = useState<string>();
   const [region, setRegion] = useState<{ country: string; restricted: boolean }>();
   const [watching, setWatching] = useState(false);
+  const [invite, setInvite] = useState<Trader>();
 
   useEffect(() => void fetchMarkets().then(setMarkets).catch(() => undefined), []);
   useEffect(() => void fetch('/api/region').then((r) => r.json()).then(setRegion).catch(() => undefined), []);
+  // Copy links: /?copy=<Perpl account id> preselects that trader after sign-in.
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get('copy');
+    if (id) void fetch(`/api/trader?id=${encodeURIComponent(id)}`).then((r) => (r.ok ? r.json() : undefined)).then(setInvite).catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    if (invite && !trader && state?.step === 'done') pick(invite);
+  }, [invite, state]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!keys) return;
     status(keys).then(setState).catch((e) => setError(e.message));
@@ -53,13 +62,14 @@ export default function Home() {
     requestAnimationFrame(() => document.getElementById('copy')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
-  if (!keys && watching) return <Watch markets={markets} restricted={!!region?.restricted} onBack={() => setWatching(false)} />;
+  if (!keys && watching) return <Watch markets={markets} restricted={!!region?.restricted} initial={invite} onBack={() => setWatching(false)} />;
   if (!keys)
     return (
       <Landing
         busy={busy}
         error={error}
         restricted={!!region?.restricted}
+        invite={invite}
         onWatch={() => setWatching(true)}
         onCreate={run('Creating your passkey', async () => setKeys(await createAccount('Tandem user')))}
         onSignIn={run('Signing in', async () => setKeys(await signIn()))}
@@ -128,9 +138,9 @@ export default function Home() {
   );
 }
 
-type LandingProps = { busy?: string; error?: string; restricted: boolean; onCreate: () => void; onSignIn: () => void; onWatch: () => void };
+type LandingProps = { busy?: string; error?: string; restricted: boolean; invite?: Trader; onCreate: () => void; onSignIn: () => void; onWatch: () => void };
 
-function Landing({ busy, error, restricted, onCreate, onSignIn, onWatch }: LandingProps) {
+function Landing({ busy, error, restricted, invite, onCreate, onSignIn, onWatch }: LandingProps) {
   const [live, setLive] = useState<number>();
   const [noPrf, setNoPrf] = useState(false);
   useEffect(() => void listAgents().then((a) => setLive(a.filter((x) => !x.halted).length)).catch(() => undefined), []);
@@ -139,6 +149,18 @@ function Landing({ busy, error, restricted, onCreate, onSignIn, onWatch }: Landi
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
       <Header />
       <div className="flex flex-1 flex-col justify-center gap-6 py-8">
+        {invite && (
+          <div className="flex items-center gap-3 rounded-2xl border border-[var(--accent)]/40 bg-[var(--accent)]/10 p-3 text-sm">
+            <Avatar address={invite.address} size={32} />
+            <span>
+              <span className="block font-medium">You're invited to copy {traderName(invite)}</span>
+              <span className="text-[var(--muted)]">
+                {invite.blurb ?? 'Sign up below, and their trades are mirrored into your account.'}
+                {!!invite.followers && ` ${invite.followers} already copying.`}
+              </span>
+            </span>
+          </div>
+        )}
         <div>
           <h1 className="text-4xl font-semibold leading-tight tracking-tight">
             Stop copying trades <span className="bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] bg-clip-text text-transparent">by hand</span>.
@@ -200,8 +222,8 @@ async function prfSupport(): Promise<boolean | undefined> {
 }
 
 /** Read-only: the live leaderboard and a real follower mirroring the picked trader. No account. */
-function Watch({ markets, restricted, onBack }: { markets: Market[]; restricted: boolean; onBack: () => void }) {
-  const [trader, setTrader] = useState<Trader>();
+function Watch({ markets, restricted, initial, onBack }: { markets: Market[]; restricted: boolean; initial?: Trader; onBack: () => void }) {
+  const [trader, setTrader] = useState<Trader | undefined>(initial);
   const [agents, setAgents] = useState<Agent[]>([]);
   useEffect(() => void listAgents().then(setAgents).catch(() => undefined), []);
   const follower = trader && agents.find((a) => !a.halted && a.leader.toString() === trader.accountId);
@@ -238,6 +260,8 @@ const Point = ({ n, title, text }: { n: number; title: string; text: string }) =
     </span>
   </li>
 );
+
+const traderName = (t: Trader) => t.label?.replace(/^Demo bot · /, '') ?? short(t.address);
 
 const Header = ({ address }: { address?: string }) => (
   <header className="flex items-center justify-between">

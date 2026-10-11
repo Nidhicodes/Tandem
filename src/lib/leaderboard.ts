@@ -8,7 +8,7 @@
 import { decodeEventLog, encodeEventTopics, type Hex } from 'viem';
 import { PERPL } from './config';
 import { positionEvents } from './exchange-abi';
-import { addressesOf, exchangeAccountOf, publicClient } from './onchain';
+import { addressOf, addressesOf, exchangeAccountOf, publicClient } from './onchain';
 import { markets } from './perpl';
 import { listAgents } from './agents';
 import { demoLeaders } from './demo';
@@ -34,6 +34,7 @@ export type Trader = {
   markets: number[];
   label?: string; // set for Tandem's own demo bots, which are always marked as such
   blurb?: string; // a demo bot's strategy, in one line
+  followers?: number; // active Tandem agents copying this trader
 };
 export type Leaderboard = { traders: Trader[]; window: string; source: 'envio-indexer' | 'envio-hypersync' | 'rpc' };
 
@@ -191,8 +192,10 @@ async function viaIndexer(url: string, limit: number): Promise<Leaderboard> {
  */
 async function withBots(board: Leaderboard): Promise<Leaderboard> {
   // Tandem followers mirror someone else; listing them as leaders would be copying a copy.
-  const followers = new Set((await listAgents().catch(() => [])).map((a) => a.follower.toString()));
-  board = { ...board, traders: board.traders.filter((t) => !followers.has(t.accountId)) };
+  const agents = await listAgents().catch(() => []);
+  const followers = new Set(agents.map((a) => a.follower.toString()));
+  const count = followerCounts(agents);
+  board = { ...board, traders: board.traders.filter((t) => !followers.has(t.accountId)).map((t) => ({ ...t, followers: count.get(t.accountId) ?? 0 })) };
   const listed = new Set(board.traders.map((t) => t.address.toLowerCase()));
   const missing = demoLeaders().filter((l) => !listed.has(l.address.toLowerCase()));
   if (!missing.length) return board;
@@ -202,7 +205,36 @@ async function withBots(board: Leaderboard): Promise<Leaderboard> {
     const m = ms.find((x) => x.symbol === l.strategy.market);
     return acc ? [{ accountId: acc.id.toString(), address: l.address, realizedPnl: 0, closes: 0, winRate: 0, trades: 0, markets: m ? [m.id] : [], label: `Demo bot · ${l.strategy.name}`, blurb: l.strategy.blurb }] : [];
   });
-  return { ...board, traders: [...board.traders, ...extra] };
+  return { ...board, traders: [...board.traders, ...extra.map((t) => ({ ...t, followers: count.get(t.accountId) ?? 0 }))] };
+}
+
+const followerCounts = (agents: { leader: bigint; halted: boolean }[]) => {
+  const m = new Map<string, number>();
+  for (const a of agents) if (!a.halted) m.set(a.leader.toString(), (m.get(a.leader.toString()) ?? 0) + 1);
+  return m;
+};
+
+/**
+ * One trader by Perpl account id, for copy links (a trader may be outside the leaderboard
+ * window). Stats come from the leaderboard when present, otherwise they're left at zero.
+ */
+export async function traderById(id: string): Promise<Trader | undefined> {
+  if (!/^\d{1,12}$/.test(id)) return undefined;
+  const board = await leaderboard().catch(() => undefined);
+  const hit = board?.traders.find((t) => t.accountId === id);
+  if (hit) return hit;
+  const address = await addressOf(BigInt(id)).catch(() => undefined);
+  if (!address || /^0x0+$/.test(address)) return undefined;
+  const agents = await listAgents().catch(() => []);
+  if (agents.some((a) => a.follower.toString() === id)) return undefined; // a follower, not a leader
+  const bot = demoLeaders().find((l) => l.address.toLowerCase() === address.toLowerCase());
+  const ms = bot ? await markets() : [];
+  return {
+    accountId: id, address, realizedPnl: 0, closes: 0, winRate: 0, trades: 0,
+    markets: bot ? ms.filter((m) => m.symbol === bot.strategy.market).map((m) => m.id) : [],
+    followers: followerCounts(agents).get(id) ?? 0,
+    ...(bot ? { label: `Demo bot · ${bot.strategy.name}`, blurb: bot.strategy.blurb } : {}),
+  };
 }
 
 export async function leaderboard(limit = 20): Promise<Leaderboard> {
