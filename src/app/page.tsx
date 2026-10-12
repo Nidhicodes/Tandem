@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { CopyPanel } from '@/components/CopyPanel';
+import { LeadPanel } from '@/components/LeadPanel';
 import { Leaderboard } from '@/components/Leaderboard';
 import { Mirror } from '@/components/Mirror';
 import { Portfolio } from '@/components/Portfolio';
@@ -24,6 +25,7 @@ export default function Home() {
   const [region, setRegion] = useState<{ country: string; restricted: boolean }>();
   const [watching, setWatching] = useState(false);
   const [invite, setInvite] = useState<Trader>();
+  const [mode, setMode] = useState<'copy' | 'lead'>('copy');
 
   useEffect(() => void fetchMarkets().then(setMarkets).catch(() => undefined), []);
   useEffect(() => void fetch('/api/region').then((r) => r.json()).then(setRegion).catch(() => undefined), []);
@@ -119,8 +121,25 @@ export default function Home() {
       <ErrorLine error={error} />
 
       {ready && <Portfolio address={keys.account.address} exchangeId={state.exchangeId!} markets={markets} />}
-      <Leaderboard onPick={pick} picked={trader?.accountId} markets={markets} />
-      {ready && trader && (
+      {ready && (
+        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-1" role="tablist" aria-label="Mode">
+          {(['copy', 'lead'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={mode === m}
+              onClick={() => setMode(m)}
+              className={`min-h-10 rounded-xl text-sm font-medium ${mode === m ? 'brand-gradient text-white' : 'text-[var(--muted)]'}`}
+            >
+              {m === 'copy' ? 'Copy a trader' : 'Lead: trade yourself'}
+            </button>
+          ))}
+        </div>
+      )}
+      {ready && mode === 'lead' && <LeadPanel keys={keys} apiKey={state.vault.perplApiKey!} exchangeId={state.exchangeId!} markets={markets} />}
+      {mode === 'copy' && <Leaderboard onPick={pick} picked={trader?.accountId} markets={markets} />}
+      {mode === 'copy' && ready && trader && (
         <CopyPanel
           key={trader.accountId}
           keys={keys}
@@ -133,7 +152,7 @@ export default function Home() {
       )}
       {!ready && trader && <p className="text-center text-sm text-[var(--muted)]">Tap Get started above, then copy {trader.label ?? short(trader.address)}.</p>}
 
-      {ready && trader && <StickyCta trader={trader} />}
+      {mode === 'copy' && ready && trader && <StickyCta trader={trader} />}
     </>
   );
 }
