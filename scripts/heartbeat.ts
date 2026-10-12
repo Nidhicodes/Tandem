@@ -41,6 +41,8 @@ async function beat(bots: boolean, why: string) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) log(why, `HTTP ${res.status}`, JSON.stringify(body).slice(0, 300));
     for (const b of body.bots ?? []) if (b.action !== 'hold') log(why, `[${b.bot}]`, b.market ?? '', b.action);
+    // Watch new leaders straight away (a user who just started copying, or a new lead-mode trader).
+    for (const a of body.agents ?? []) if (a.leader && !leaders.has(String(a.leader))) leaders.add(String(a.leader));
     for (const a of body.agents ?? []) for (const l of a.logs ?? []) log(why, a.owner.slice(0, 8), `#${a.leader}`, l.text);
     for (const a of body.agents ?? []) if (a.error) log(why, a.owner.slice(0, 8), 'error', a.error);
     if (body.treasury === 'claimed') log(why, 'treasury +faucet');
